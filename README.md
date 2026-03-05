@@ -1,6 +1,6 @@
-# Interactive Ball Game
+# Dungeon Ecosystem Game - Prototype
 
-A fun, interactive React-based web game where you make a black ball move by clicking on the canvas.
+An experimental exploration game prototype for testing non-combat dungeon mechanics in a D&D-inspired underground setting. Navigate through a living ecosystem of creatures, observe their behavior, and solve puzzles through understanding rather than combat.
 
 ## Quick Start
 
@@ -32,12 +32,26 @@ npm run build
 
 Output goes to `dist/` folder.
 
-## Game Controls
+## Game Concept
 
-Click anywhere on the white canvas to push the ball in that direction. The ball will:
-- Accelerate towards your click
-- Bounce off canvas edges
-- Gradually slow down due to friction
+**Goal:** Navigate a dangerous dungeon, retrieve an artifact from the depths, and escape alive.
+
+**Challenge:** Most creatures can kill you in seconds. Survival depends on understanding their behavior through careful observation rather than combat.
+
+**Core Mechanics:**
+- **Exploration:** Move through interconnected caverns full of creatures
+- **Observation:** Learn what each creature wants, fears, and hunts
+- **Avoidance:** Use stealth, environmental knowledge, and creature relationships to bypass threats
+- **Day/Night Cycles:** Creature activity changes based on time; use this to your advantage
+
+**Creatures (D&D Bestiary):**
+- **Giant Rats** - Nocturnal scavengers, fear light, swarm in numbers
+- **Giant Spiders** - Territorial hunters, create webs, aggressive to intruders
+- **Goblins** - Intelligent, organized, territorial, set traps
+- **Myconids** - Slow fungal entities, create safe zones through alien intelligence
+- **Owlbear** - Apex predator, deadly in combat, hunts on its schedule
+
+See [docs/GAME_LOGIC.md](./docs/GAME_LOGIC.md) for detailed creature ecosystem design.
 
 ## Technologies Used
 
@@ -51,14 +65,21 @@ Click anywhere on the white canvas to push the ball in that direction. The ball 
 ```
 src/
   components/
-    BallGame.tsx    # Main game component
-  App.tsx          # Root component
-  main.tsx         # Entry point
+    DungeonGame.tsx      # Main game component (replaces BallGame.tsx)
+    Creature.tsx         # Creature rendering & behavior
+    Player.tsx           # Party representation
+    DungeonMap.tsx       # Level/dungeon layout
+  systems/
+    CreatureAI.ts        # Behavior system for creatures
+    EcosystemManager.ts  # Creature interactions & ecology
+    ObservationLog.ts    # Player knowledge tracking
+  App.tsx               # Root component
+  main.tsx              # Entry point
 docs/
-  GAME_LOGIC.md    # Game mechanics documentation
-  TODO.md          # Roadmap and known issues
+  GAME_LOGIC.md         # Core mechanics & creature ecosystem design
+  TODO.md               # Development roadmap
 scripts/
-  update-version.js # Version management script
+  update-version.js     # Version management script
 ```
 
 ## Version Management
@@ -72,6 +93,16 @@ Version bumps after every code change:
 npm run bump:build -- --desc "Your change description"
 npm run bump:minor -- --desc "For breaking changes"
 ```
+
+## Prototype Philosophy
+
+This is an **experimental prototype** focused on testing core mechanics over polish:
+- ✓ Mechanic testing (observation, avoidance, ecosystem)
+- ✓ Creature AI behavior patterns
+- ✓ Non-combat gameplay viability
+- ✗ Full art/audio (placeholder acceptable)
+- ✗ Complete dungeon (3-5 locations sufficient)
+- ✗ All D&D creatures (start with Rats/Spiders/Goblins/Owlbear)
 
 ## License
 

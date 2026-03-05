@@ -1,10 +1,10 @@
-import { BallGame } from './components/BallGame'
+import { DungeonGame } from './components/DungeonGame'
 import './App.css'
 
 function App() {
   return (
     <div className="app">
-      <BallGame />
+      <DungeonGame />
     </div>
   )
 }
