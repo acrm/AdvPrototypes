@@ -14,6 +14,10 @@
   border-right: 2px solid #333;
 }
 
+.dungeon-canvas.hovering-object {
+  cursor: help;
+}
+
 .dungeon-canvas:hover {
   box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
 }

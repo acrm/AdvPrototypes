@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { GameState, Vector2, GameObject } from '../types/game'
 import { initializeMap } from '../systems/MapGenerator'
-import { findPathWithObstacles } from '../systems/Pathfinding'
+import { findPathWithObstacles, snapToGrid } from '../systems/Pathfinding'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
 import './DungeonGame.css'
@@ -10,7 +10,7 @@ export const DungeonGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(() => ({
     map: initializeMap(),
     party: {
-      position: { x: 100, y: 100 },
+      position: snapToGrid({ x: 100, y: 100 }),
       members: ['Warrior', 'Rogue', 'Cleric'],
       path: [],
       targetPosition: null,
@@ -78,16 +78,22 @@ export const DungeonGame: React.FC = () => {
     const interval = setInterval(() => {
       setGameState((prev) => {
         const updatedCreatures = prev.map.creatures.map((creature) => {
-          // If no waypoints, generate new ones
+          // If no waypoints, generate new ones using pathfinding
           if (creature.waypoints.length === 0) {
+            const randomTarget = snapToGrid({
+              x: Math.random() * (prev.map.width - 200) + 100,
+              y: Math.random() * (prev.map.height - 200) + 100,
+            })
+            const newPath = findPathWithObstacles(
+              creature.position,
+              randomTarget,
+              prev.map.objects,
+              prev.map.width,
+              prev.map.height
+            )
             return {
               ...creature,
-              waypoints: [
-                {
-                  x: Math.random() * (prev.map.width - 200) + 100,
-                  y: Math.random() * (prev.map.height - 200) + 100,
-                },
-              ],
+              waypoints: newPath,
             }
           }
 
@@ -97,15 +103,11 @@ export const DungeonGame: React.FC = () => {
             Math.pow(target.y - creature.position.y, 2)
           )
 
-          // Reached waypoint, remove it and add a new one
+          // Reached waypoint, remove it
           if (distance < creature.speed * 2) {
             const newWaypoints = [...creature.waypoints]
             newWaypoints.shift()
-            // Add new random waypoint
-            newWaypoints.push({
-              x: Math.random() * (prev.map.width - 200) + 100,
-              y: Math.random() * (prev.map.height - 200) + 100,
-            })
+            // If no more waypoints, will generate new path next iteration
             return { ...creature, waypoints: newWaypoints }
           }
 

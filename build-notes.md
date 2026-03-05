@@ -6,3 +6,4 @@
 - 2026w10-1.1 — Initialize dungeon ecosystem prototype with movement, creatures, and info panel
 - 2026w10-1.2 — Fix info panel logic and track creature observations
 - 2026w10-2.1 — Add pathfinding, creature movement, and rotating triangles
+- 2026w10-3.1 — Added grid-based pathfinding system, dungeon walls, diagonal movement, and cursor feedback

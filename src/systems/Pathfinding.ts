@@ -1,7 +1,31 @@
 // Simple A* pathfinding for dungeon navigation
 import { Vector2, GameObject } from '../types/game'
 
-const GRID_SIZE = 20 // Grid cell size in pixels
+export const GRID_SIZE = 50 // Grid cell size in pixels
+
+// Helper to snap position to grid center
+export function snapToGrid(pos: Vector2): Vector2 {
+  return {
+    x: Math.round(pos.x / GRID_SIZE) * GRID_SIZE,
+    y: Math.round(pos.y / GRID_SIZE) * GRID_SIZE,
+  }
+}
+
+// Helper to get grid coordinates
+export function toGridCoords(pos: Vector2): { x: number; y: number } {
+  return {
+    x: Math.floor(pos.x / GRID_SIZE),
+    y: Math.floor(pos.y / GRID_SIZE),
+  }
+}
+
+// Helper to get world position from grid coords
+export function toWorldCoords(gridX: number, gridY: number): Vector2 {
+  return {
+    x: gridX * GRID_SIZE,
+    y: gridY * GRID_SIZE,
+  }
+}
 
 interface GridNode {
   x: number
@@ -98,7 +122,11 @@ export function findPathWithObstacles(
         continue
       }
 
-      const tentativeG = currentNode.g + 1
+      // Calculate cost (diagonal = ~1.414, straight = 1)
+      const dx = Math.abs(neighbor.x - currentNode.x)
+      const dy = Math.abs(neighbor.y - currentNode.y)
+      const moveCost = dx === 1 && dy === 1 ? 1.414 : 1
+      const tentativeG = currentNode.g + moveCost
 
       if (!openList.includes(neighbor)) {
         openList.push(neighbor)
@@ -131,11 +159,26 @@ function getNeighbors(
   const neighbors: GridNode[] = []
   const { x, y } = node
 
-  // 4-directional movement
-  if (x > 0) neighbors.push(grid[y][x - 1])
-  if (x < gridWidth - 1) neighbors.push(grid[y][x + 1])
-  if (y > 0) neighbors.push(grid[y - 1][x])
-  if (y < gridHeight - 1) neighbors.push(grid[y + 1][x])
+  // 8-directional movement (including diagonals)
+  const directions = [
+    { dx: -1, dy: 0 },  // left
+    { dx: 1, dy: 0 },   // right
+    { dx: 0, dy: -1 },  // up
+    { dx: 0, dy: 1 },   // down
+    { dx: -1, dy: -1 }, // up-left
+    { dx: 1, dy: -1 },  // up-right
+    { dx: -1, dy: 1 },  // down-left
+    { dx: 1, dy: 1 },   // down-right
+  ]
+
+  for (const dir of directions) {
+    const nx = x + dir.dx
+    const ny = y + dir.dy
+
+    if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+      neighbors.push(grid[ny][nx])
+    }
+  }
 
   return neighbors
 }

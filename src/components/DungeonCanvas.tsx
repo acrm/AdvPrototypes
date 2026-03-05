@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { GameState, Vector2 } from '../types/game'
 
 interface DungeonCanvasProps {
@@ -8,6 +8,7 @@ interface DungeonCanvasProps {
 
 export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanvasClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isHoveringObject, setIsHoveringObject] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -116,13 +117,54 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     onCanvasClick({ x, y })
   }
 
+  const checkIfHoveringObject = (x: number, y: number): boolean => {
+    // Check items (circles)
+    for (const item of gameState.map.items) {
+      const dx = x - item.position.x
+      const dy = y - item.position.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance <= item.width / 2) return true
+    }
+
+    // Check artifact (circle)
+    const artifact = gameState.map.artifact
+    const dx = x - artifact.position.x
+    const dy = y - artifact.position.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    if (distance <= artifact.width / 2) return true
+
+    // Check creatures (triangles - approximate with circle)
+    for (const creature of gameState.map.creatures) {
+      const dx = x - creature.position.x
+      const dy = y - creature.position.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance <= 15) return true
+    }
+
+    return false
+  }
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+
+    setIsHoveringObject(checkIfHoveringObject(x, y))
+  }
+
   return (
     <canvas
       ref={canvasRef}
       width={1200}
       height={800}
       onClick={handleCanvasClick}
-      className="dungeon-canvas"
+      onMouseMove={handleCanvasMouseMove}
+      className={`dungeon-canvas ${isHoveringObject ? 'hovering-object' : ''}`}
     />
   )
 }
