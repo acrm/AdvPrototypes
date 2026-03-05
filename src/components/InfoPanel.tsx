@@ -5,11 +5,21 @@ import './InfoPanel.css'
 interface InfoPanelProps {
   selectedObject: GameObject | null
   party: Party
+  cycleTime: number
 }
 
-export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party }) => {
+export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party, cycleTime }) => {
+  const getTimeOfDay = (cycle: number): string => {
+    // 0-60: Night, 60-120: Morning, 120-180: Day, 180-240: Evening
+    if (cycle < 60) return '🌙 Night'
+    if (cycle < 120) return '🌅 Morning'
+    if (cycle < 180) return '☀️ Day'
+    return '🌆 Evening'
+  }
+
   const displayPartyInfo = (): string => {
     let info = `# PARTY STATUS\n\n`
+    info += `**Time:** ${getTimeOfDay(cycleTime)} (${Math.floor(cycleTime)}s)\n\n`
     info += `**Members:** ${party.members.join(', ')}\n\n`
     info += `**Position:** (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
     info += `**Observed Creatures:** ${party.observedCreatures.size}\n\n`
@@ -20,9 +30,24 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party }) =
   const getCreatureDescription = (creature: Creature): string => {
     let desc = `**${creature.name}**\n\n`
     desc += `${creature.description}\n\n`
+    
+    // Show current state
+    const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
+    desc += `**State:** ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
+    
+    // Show sleep schedule
+    const sleepStart = Math.floor(creature.sleepSchedule.sleepStart)
+    const sleepEnd = Math.floor(creature.sleepSchedule.sleepEnd)
+    desc += `**Sleep:** ${sleepStart}-${sleepEnd}s ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
+    
     if (creature.behavior) desc += `**Behavior:** ${creature.behavior}\n`
     if (creature.diet) desc += `**Diet:** ${creature.diet}\n`
     if (creature.threat) desc += `**Threat Level:** ${creature.threat}\n`
+    
+    if (creature.preferredFoodTypes && creature.preferredFoodTypes.length > 0) {
+      desc += `**Food Preferences:** ${creature.preferredFoodTypes.join(', ')}\n`
+    }
+    
     desc += `\n**Times Observed:** ${party.observedCreatures.get(creature.id) || 0}`
     return desc
   }

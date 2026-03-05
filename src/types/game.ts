@@ -5,7 +5,11 @@ export interface Vector2 {
   y: number
 }
 
-export type ObjectType = 'creature' | 'obstacle' | 'item' | 'artifact'
+export type ObjectType = 'creature' | 'obstacle' | 'item' | 'artifact' | 'food' | 'spawn_zone'
+
+export type CreatureState = 'sleeping' | 'idle' | 'patrol'
+
+export type FoodType = 'fungi' | 'organic_matter' | 'meat' | 'insects'
 
 export interface GameObject {
   id: string
@@ -18,6 +22,12 @@ export interface GameObject {
   description: string
 }
 
+export interface SleepSchedule {
+  sleepStart: number // 0-240 cycle time when sleep starts
+  sleepEnd: number // 0-240 cycle time when sleep ends
+  variation: number // random variation in sleep times
+}
+
 export interface Creature extends GameObject {
   type: 'creature'
   behavior?: string
@@ -26,6 +36,25 @@ export interface Creature extends GameObject {
   direction: number // angle in radians
   waypoints: Vector2[] // random movement path
   speed: number // movement speed
+  state: CreatureState // current state
+  sleepSchedule: SleepSchedule // sleep/wake pattern
+  carriedFood: Food | null // food being carried
+  preferredFoodTypes: FoodType[] // what food this creature eats
+}
+
+export interface Food extends GameObject {
+  type: 'food'
+  foodType: FoodType
+  nutritionValue: number
+}
+
+export interface SpawnZone extends GameObject {
+  type: 'spawn_zone'
+  foodType: FoodType
+  spawnInterval: number // seconds between spawns
+  lastSpawnTime: number // when last food spawned
+  maxFood: number // max simultaneous food items
+  currentFood: number // current food count
 }
 
 export interface Obstacle extends GameObject {
@@ -47,6 +76,7 @@ export interface Party {
   targetPosition: Vector2 | null
   observedCreatures: Map<string, number> // id -> times observed
   direction: number // angle in radians
+  carriedItem: Food | Item | null // what party is carrying
 }
 
 export interface GameMap {
@@ -55,6 +85,8 @@ export interface GameMap {
   objects: GameObject[]
   creatures: Creature[]
   items: Item[]
+  food: Food[]
+  spawnZones: SpawnZone[]
   artifact: Artifact
 }
 
@@ -62,6 +94,7 @@ export interface GameState {
   map: GameMap
   party: Party
   selectedObject: GameObject | null
-  gameTime: number // in game time (0-1 represents a day cycle)
+  gameTime: number // in seconds (0-240 represents full cycle)
+  cycleTime: number // 0-240 current time in cycle
   isMoving: boolean
 }

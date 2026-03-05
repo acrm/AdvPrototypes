@@ -3,116 +3,149 @@
 ## Phase 1: Core Loop MVP (Prototype)
 
 ### Foundation
-- [ ] Dungeon map structure (tilemap, 3-5 key locations)
-- [ ] Player character & party representation
+- [ ] Set game window title to "Dungeon Ecosystem"
+- [ ] Dungeon map structure (basic multi-room layout)
+- [ ] Party character & representation
 - [ ] Camera/viewport system
-- [ ] Input system (movement, interact, observe)
+- [ ] Mouse click input system (movement, object interaction)
 
-### Basic Creature System
-- [ ] Creature entity framework (position, state, behavior)
-- [ ] Giant Rats (nocturnal, scavenger behavior, swarm mechanics)
-- [ ] Giant Spiders (territorial, web mechanic, aggression)
-- [ ] Basic AI state machine (idle, alert, hunting, fleeing)
+### Creature AI System
+- [ ] Creature entity framework with sleep/wake cycles
+- [ ] 240-second game cycle with time progression
+- [ ] Sleep schedule system (sleepStart, sleepEnd, variation)
+- [ ] Three creature states: sleeping, idle, patrol
+- [ ] Visual state feedback (immobile vs rotating vs moving)
+- [ ] Deterministic waypoint generation for patrol routes
+- [ ] State transitions based on cycle time
 
-### Day/Night Cycle
-- [ ] Time progression system
-- [ ] Creature activity changes (rats active at night, etc)
-- [ ] Visual feedback (lighting changes, creature behavior shifts)
+### Food & Feeding System
+- [ ] Food item type: fungi, organic_matter, meat, insects
+- [ ] Spawn zones (semi-transparent, respawning food)
+- [ ] Creatures pick up and carry food
+- [ ] Creatures move to feeding locations (species-specific behavior)
+- [ ] Feeding duration timer (2-8 seconds by food type)
+- [ ] Food disappears after consumption
+- [ ] Visual rendering of carried food at creature's forward vertex
 
-### Observation Mechanics
-- [ ] Creature detection/visibility on screen
-- [ ] Basic observation log (what did player witness?)
-- [ ] HUD display of known creatures
-- [ ] Simple behavior indicators (sleeping, hunting, alert)
+### Player Interaction System
+- [ ] Object click detection and context menu
+- [ ] "Pick Up" action for food items
+- [ ] "Drop" action for carrying items
+- [ ] Party inventory (can hold one item at a time)
+- [ ] Visual feedback for held items (display at party direction)
+- [ ] Examine action for spawn zones and obstacles
 
-### Player Interaction
-- [ ] Stealth movement (noise/detection system)
-- [ ] Light source management (torch affects visibility)
-- [ ] Creature reaction to player actions
-- [ ] Basic hazards (environmental damage)
+### Creature Species (MVP)
+- [ ] Giant Rats (nocturnal sleep pattern, fungi/organic preference)
+- [ ] Giant Spiders (alert, eat-on-site behavior)
+- [ ] Goblins (organized, carry to den behavior)
+- [ ] Owlbear (minimal sleep, apex predator)
+
+### Observation & Information
+- [ ] Creature detection when visible on screen
+- [ ] Info panel showing selected object details
+- [ ] Display creature state when selected
+- [ ] Show food type information
+- [ ] Display spawn zone details
 
 ### Artifact & Objective
 - [ ] Owlbear lair location with artifact
-- [ ] Win condition (reach entrance with artifact)
-- [ ] Lose conditions (party death)
-- [ ] At least one clear path through dungeon
+- [ ] Win condition check (artifact + at entrance)
+- [ ] Basic map with clear path to artifact
+- [ ] Visual marker for entrance and artifact
 
 ### Testing
-- [ ] Playtest core loop (can player observe creatures?)
-- [ ] Verify creature behaviors are deterministic
-- [ ] Test stealth vs. aggression outcomes
+- [ ] Playtest creature sleep cycles (visible state changes)
+- [ ] Verify creature feeding behavior works
+- [ ] Test player object pickup/dropping
+- [ ] Test various creature sleep patterns (can bypass sleeping ones)
 
 ---
 
 ## Phase 2: Ecosystem Expansion
 
-### Extended Bestiary
-- [ ] Goblins (organized, traps, territorial)
-- [ ] Myconids (slow, alien behavior, spore mechanic)
-- [ ] Drow scouts (intelligent, faction rivals)
+## Phase 2: Ecosystem Expansion
+
+### Advanced Feeding Mechanics
+- [ ] Hunger state tracking for creatures
+- [ ] Creatures actively search for food when hungry
+- [ ] Hunger affects creature behavior (more aggressive?)
+- [ ] Population control (too many creatures = food scarcity)
 
 ### Creature Interactions
-- [ ] Goblin vs. Drow conflict system
-- [ ] Predator/prey dynamics (spiders hunt flying creatures)
-- [ ] Territorial disputes
-- [ ] Feeding/corpse mechanics
+- [ ] Predator/prey dynamics (spiders hunt insects)
+- [ ] Territorial disputes between creatures
+- [ ] Feeding conflicts (competition for resources)
+- [ ] Pack behavior (rats swarm, goblins coordinate)
+
+### Extended Bestiary
+- [ ] Myconids (slow, detoxify areas)
+- [ ] More creature species (cave fish, bats, wolves, etc.)
+- [ ] Environmental creatures (insects, small harmless life)
 
 ### Advanced Knowledge System
-- [ ] Multi-tier creature knowledge (identification → behavior → exploitation)
-- [ ] Knowledge persistence (remember what you learned)
-- [ ] Discovery journal with creature entries
+- [ ] Multi-tier creature knowledge (identification → behavior → feeding spots)
+- [ ] Knowledge persistence across saves
+- [ ] Discovery journal with creature entries and notes
+- [ ] Creature behavior learning (become wary of player)
 
 ### Multiple Routes
-- [ ] Stealth path (around enemies)
-- [ ] Exploitation path (trigger conflicts, use as cover)
-- [ ] Symbiotic path (follow neutral creatures)
-- [ ] Environmental path (use hazards)
-
-### Audio System
-- [ ] Ambient dungeon sounds
-- [ ] Creature vocalizations (rat squeaks, spider hiss)
-- [ ] Silence as safety indicator
-- [ ] Noise generation mechanics
+- [ ] Stealth path (around enemies, use sleep cycles)
+- [ ] Feeding path (use food to distract/redirect)
+- [ ] Predator path (use predator/prey dynamics)
+- [ ] Environmental path (use obstacles and hazards)
 
 ---
 
 ## Phase 3: Polish & Depth
 
 ### Advanced Features
+- [ ] Stealth mechanics (noise generation, detection radius)
+- [ ] Light source mechanics (torch/darkness affect visibility)
+- [ ] Hazardous terrain (toxic zones, unstable floors)
+- [ ] Sound effects and creature vocalizations
+- [ ] Scent/smell tracking for predators
+- [ ] Combat as ultimate failure state (shows why avoidance needed)
+- [ ] Creature swarms and pack dynamics
 - [ ] Gelatinous Cube encounter (major setpiece)
-- [ ] Scent/smell mechanic (for predators)
-- [ ] Pack dynamics (goblin squads, rat swarms)
-- [ ] Breeding/population changes (minor ecosystem shifts)
 
-### UI/UX
-- [ ] Better creature recognition UI
+### UI/UX Improvements
+- [ ] Better creature state visualization (icons, effects)
 - [ ] Threat level indicators
+- [ ] Cycle timer display
+- [ ] Inventory management UI
 - [ ] Map memory (what you've explored)
-- [ ] Quest journal/objectives
+- [ ] Quest log with objectives
 
-### Narrative
-- [ ] Discovery narrative (lore discovered through creatures)
-- [ ] Environmental storytelling
-- [ ] Artifact reveal and consequence
+### Narrative & Atmosphere
+- [ ] Environmental storytelling through creature behavior
+- [ ] Artifact lore and purpose
+- [ ] Discovery of past events through ecosystem clues
+- [ ] End-game narrative consequences
 
-### Emergent Gameplay
+### Emergent & Dynamic Systems
 - [ ] Creature behavior learning from player (become cautious)
-- [ ] Long-term ecosystem changes (deplete rat population = less food)
-- [ ] Dynamic encounters (creatures change patterns)
+- [ ] Long-term ecosystem changes (deplete rat population = food chain shifts)
+- [ ] Dynamic encounters (creatures modify patterns)
+- [ ] Food source management (run out of food = desperation)
 
 ---
 
-## Known Issues
-- None yet (prototype phase)
+## Known Issues & Notes
+- Sleep cycle variation should be deterministic per creature (seed-based)
+- Food carrying animation needs smooth visual integration
+- Spawn zones respawn timer needs to handle consumed vs missed food
 
 ## Technical Debt / Considerations
-- Creature AI architecture (should be easily extensible)
-- Audio system integration
+- Creature AI architecture needs to be easily extensible (add new species)
+- Food interaction system should support future mechanics (poisoning, disease)
 - Save/load progress for longer playtests
 - Performance optimization for many simultaneous creatures
+- Path collision avoidance (creatures walking through walls)
 
 ## Testing Priorities
-1. **Playability:** Can player actually achieve objectives without combat?
-2. **Learnability:** Can player intuitively discover creature patterns?
+1. **Learnability:** Can player intuitively discover creature sleep patterns?
+2. **Playability:** Can player reach artifact using only observation and food manipulation?
 3. **Fairness:** Are there always viable non-combat solutions?
-4. **Balance:** Is any strategy obviously dominant (thus others obsolete)?
+4. **Balance:** Is any single strategy obviously dominant (thus others useless)?
+5. **Determinism:** Do creatures follow consistent, predictable patterns across playthroughs?

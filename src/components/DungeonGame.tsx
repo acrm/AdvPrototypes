@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { GameState, Vector2, GameObject } from '../types/game'
-import { initializeMap } from '../systems/MapGenerator'
+import { initializeMap, isSleeping } from '../systems/MapGenerator'
 import { findPathWithObstacles, snapToGrid } from '../systems/Pathfinding'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
@@ -18,9 +18,11 @@ export const DungeonGame: React.FC = () => {
         targetPosition: null,
         observedCreatures: new Map(),
         direction: -Math.PI / 2, // pointing up initially
+        carriedItem: null,
       },
       selectedObject: null,
       gameTime: 0,
+      cycleTime: 120, // Start at midday (cycle is 0-240)
       isMoving: false,
     }
   })
@@ -76,11 +78,29 @@ export const DungeonGame: React.FC = () => {
     return () => clearInterval(interval)
   }, [gameState.isMoving])
 
-  // Creature random movement
+  // Creature random movement and state updates
   useEffect(() => {
     const interval = setInterval(() => {
       setGameState((prev) => {
+        // Update cycle time (240 seconds = full cycle)
+        const newCycleTime = (prev.cycleTime + 0.05) % 240
+
         const updatedCreatures = prev.map.creatures.map((creature) => {
+          // Update creature state based on sleep schedule
+          const shouldSleep = isSleeping(creature.sleepSchedule, newCycleTime)
+          const newState: 'sleeping' | 'idle' | 'patrol' = shouldSleep 
+            ? 'sleeping' 
+            : (creature.waypoints.length > 0 ? 'patrol' : 'idle')
+
+          // Sleeping creatures don't move
+          if (newState === 'sleeping') {
+            return {
+              ...creature,
+              state: newState,
+              waypoints: [], // Clear waypoints when sleeping
+            }
+          }
+
           // If no waypoints, generate new ones using pathfinding
           if (creature.waypoints.length === 0) {
             const randomTarget = snapToGrid({
@@ -96,6 +116,7 @@ export const DungeonGame: React.FC = () => {
             )
             return {
               ...creature,
+              state: (newPath.length > 0 ? 'patrol' : 'idle') as 'patrol' | 'idle',
               waypoints: newPath,
             }
           }
@@ -111,7 +132,11 @@ export const DungeonGame: React.FC = () => {
             const newWaypoints = [...creature.waypoints]
             newWaypoints.shift()
             // If no more waypoints, will generate new path next iteration
-            return { ...creature, waypoints: newWaypoints }
+            return { 
+              ...creature, 
+              state: (newWaypoints.length > 0 ? 'patrol' : 'idle') as 'patrol' | 'idle',
+              waypoints: newWaypoints 
+            }
           }
 
           // Move towards waypoint
@@ -129,13 +154,15 @@ export const DungeonGame: React.FC = () => {
             ...creature,
             position: newPos,
             direction: angle,
+            state: 'patrol' as const,
           }
         })
 
         return {
           ...prev,
           map: { ...prev.map, creatures: updatedCreatures },
-          gameTime: prev.gameTime + 0.0005,
+          gameTime: prev.gameTime + 0.05,
+          cycleTime: newCycleTime,
         }
       })
     }, 50) // Update creatures every 50ms
@@ -222,6 +249,7 @@ export const DungeonGame: React.FC = () => {
       <InfoPanel
         selectedObject={gameState.selectedObject}
         party={gameState.party}
+        cycleTime={gameState.cycleTime}
       />
     </div>
   )

@@ -1,4 +1,4 @@
-import { GameMap, Vector2 } from '../types/game'
+import { GameMap, Vector2, SleepSchedule } from '../types/game'
 import { GRID_SIZE } from './Pathfinding'
 import { DUNGEON_LAYOUT, GRID_COLS, GRID_ROWS } from '../data/dungeonLayout'
 
@@ -7,6 +7,36 @@ function gridToWorld(gridX: number, gridY: number): Vector2 {
   return {
     x: gridX * GRID_SIZE + GRID_SIZE / 2,
     y: gridY * GRID_SIZE + GRID_SIZE / 2,
+  }
+}
+
+// Helper to generate sleep schedule for creature
+function generateSleepSchedule(isNocturnal: boolean = false): SleepSchedule {
+  if (isNocturnal) {
+    // Sleep during "day" (60-180)
+    return {
+      sleepStart: 60 + Math.random() * 20,
+      sleepEnd: 160 + Math.random() * 20,
+      variation: 5 + Math.random() * 10,
+    }
+  } else {
+    // Sleep during "night" (180-300, wraps to 0-60)
+    return {
+      sleepStart: 200 + Math.random() * 20,
+      sleepEnd: 40 + Math.random() * 20,
+      variation: 5 + Math.random() * 10,
+    }
+  }
+}
+
+// Helper to check if creature should be sleeping at given cycle time
+function isSleeping(schedule: SleepSchedule, cycleTime: number): boolean {
+  const { sleepStart, sleepEnd } = schedule
+  if (sleepStart < sleepEnd) {
+    return cycleTime >= sleepStart && cycleTime <= sleepEnd
+  } else {
+    // Wraps around midnight (e.g., 200-40 means sleep from 200-240 and 0-40)
+    return cycleTime >= sleepStart || cycleTime <= sleepEnd
   }
 }
 
@@ -29,6 +59,8 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
     objects: [],
     creatures: [],
     items: [],
+    food: [],
+    spawnZones: [],
     artifact: {
       id: 'artifact_main',
       type: 'artifact',
@@ -102,6 +134,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
 
         case 'r': // Rat
           ratCount++
+          const ratSchedule = generateSleepSchedule(true) // nocturnal
           map.creatures.push({
             id: `rat_${ratCount}`,
             type: 'creature',
@@ -117,11 +150,16 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.4 + Math.random() * 0.3,
+            state: isSleeping(ratSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: ratSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['fungi', 'organic_matter'],
           })
           break
 
         case 's': // Spider
           spiderCount++
+          const spiderSchedule = generateSleepSchedule(false) // diurnal
           map.creatures.push({
             id: `spider_${spiderCount}`,
             type: 'creature',
@@ -137,11 +175,16 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.3 + Math.random() * 0.3,
+            state: isSleeping(spiderSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: spiderSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['insects', 'meat'],
           })
           break
 
         case 'g': // Goblin
           goblinCount++
+          const goblinSchedule = generateSleepSchedule(false) // diurnal
           map.creatures.push({
             id: `goblin_${goblinCount}`,
             type: 'creature',
@@ -157,11 +200,16 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.5 + Math.random() * 0.3,
+            state: isSleeping(goblinSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: goblinSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['meat', 'organic_matter'],
           })
           break
 
         case 'm': // Myconid
           myconidCount++
+          const myconidSchedule = generateSleepSchedule(false)
           map.creatures.push({
             id: `myconid_${myconidCount}`,
             type: 'creature',
@@ -177,11 +225,16 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.2 + Math.random() * 0.2,
+            state: isSleeping(myconidSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: myconidSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['organic_matter', 'fungi'],
           })
           break
 
         case 'o': // Owl
           owlCount++
+          const owlSchedule = generateSleepSchedule(true) // nocturnal
           map.creatures.push({
             id: `owl_${owlCount}`,
             type: 'creature',
@@ -197,11 +250,16 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.6 + Math.random() * 0.3,
+            state: isSleeping(owlSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: owlSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['meat', 'insects'],
           })
           break
 
         case 'b': // Bat
           batCount++
+          const batSchedule = generateSleepSchedule(true) // nocturnal
           map.creatures.push({
             id: `bat_${batCount}`,
             type: 'creature',
@@ -217,11 +275,16 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.7 + Math.random() * 0.4,
+            state: isSleeping(batSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: batSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['insects'],
           })
           break
 
         case 'w': // Wolf
           wolfCount++
+          const wolfSchedule = generateSleepSchedule(false)
           map.creatures.push({
             id: `wolf_${wolfCount}`,
             type: 'creature',
@@ -237,11 +300,16 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.6 + Math.random() * 0.3,
+            state: isSleeping(wolfSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: wolfSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['meat'],
           })
           break
 
         case 'k': // Kobold
           koboldCount++
+          const koboldSchedule = generateSleepSchedule(false)
           map.creatures.push({
             id: `kobold_${koboldCount}`,
             type: 'creature',
@@ -257,6 +325,10 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             direction: Math.random() * Math.PI * 2,
             waypoints: generateRandomWaypoints(3),
             speed: 0.5 + Math.random() * 0.3,
+            state: isSleeping(koboldSchedule, 120) ? 'sleeping' : 'idle',
+            sleepSchedule: koboldSchedule,
+            carriedFood: null,
+            preferredFoodTypes: ['meat', 'organic_matter', 'insects'],
           })
           break
 
@@ -267,3 +339,6 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
 
   return { map, partyStartPosition }
 }
+
+// Export helper functions for use in game loop
+export { isSleeping }

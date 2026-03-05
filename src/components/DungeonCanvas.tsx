@@ -63,9 +63,27 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     ctx.arc(artifact.position.x, artifact.position.y, artifact.width / 2, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw creatures (triangles - pointed rectangles)
+    // Draw creatures (triangles for awake, circles for sleeping)
     for (const creature of gameState.map.creatures) {
-      drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
+      if (creature.state === 'sleeping') {
+        // Draw sleeping creature as a circle with "Zzz"
+        ctx.fillStyle = creature.color
+        ctx.globalAlpha = 0.6 // Semi-transparent
+        ctx.beginPath()
+        ctx.arc(creature.position.x, creature.position.y, 12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.globalAlpha = 1.0
+        
+        // Add "Z" symbol
+        ctx.fillStyle = '#fff'
+        ctx.font = '12px monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('Z', creature.position.x, creature.position.y - 18)
+      } else {
+        // Draw awake creature as triangle
+        drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
+      }
     }
 
     // Draw party path (dashed line)

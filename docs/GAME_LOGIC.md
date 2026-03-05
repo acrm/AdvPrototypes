@@ -85,18 +85,99 @@
 
 ## Player Mechanics
 
+### Creature Sleep/Activity Cycles
+
+**Cycle Duration:** 240 seconds (full cycle)
+
+**Creature States:**
+1. **SLEEPING** - Completely motionless, unaware of surroundings
+   - Safe to pass nearby
+   - Identified by: zero movement, frozen in place
+   - Cannot react to player actions
+
+2. **IDLE** - Awake but stationary, constantly rotating/looking around
+   - Aware but not actively hunting
+   - May notice player if very close
+   - Identified by: static position, continuous rotation
+
+3. **PATROL** - Actively moving along waypoints, fully alert
+   - Most dangerous state
+   - Can detect player and react
+   - Identified by: smooth movement, directional heading
+
+**Sleep Schedules (Species-Specific):**
+- **Rats:** Sleep 60-90% of cycle (nocturnal, hide during day)
+- **Spiders:** Sleep 10-30% of cycle (brief rests, always ready)
+- **Goblins:** Sleep 0-15% of cycle (highly alert, paranoid)
+- **Owlbear:** Sleep 20-60% of cycle (long hunter's rest)
+
+Each individual creature has slight variation (±5%) to make patterns non-obvious but learnable.
+
+### Food & Feeding Mechanics
+
+**Food Types & Spawn Zones:**
+- **Fungi** - Grows in fungal gardens, soft glow
+- **Organic Matter** - Decomposing vegetation, scattered debris
+- **Meat** - Carrion from fallen creatures
+- **Insects** - Swarms in specific cave areas
+
+Each food type appears in semi-transparent spawn zones where it respawns periodically.
+
+**Creature Feeding Process:**
+1. Creature finds food → **picks it up** (can carry one item)
+2. Creature decides: eat here or carry to secluded location?
+3. Creature moves to feeding spot (may be different for each species)
+4. Creature **stops and eats** for species-dependent duration:
+   - Insects: 2 seconds
+   - Fungi: 3 seconds
+   - Organic Matter: 5 seconds
+   - Meat: 8 seconds
+5. Food item disappears
+
+**Species Feeding Behavior:**
+- **Rats:** Prefer to carry food to burrows (hiding behavior)
+- **Spiders:** Eat on-site (use webbing to hold prey)
+- **Goblins:** Carry to dens/safe zones (organized behavior)
+- **Owlbear:** Eat anywhere (apex predator, fearless)
+
+**Visual Indicator:** Food being carried displays as small object at creature's forward-pointing triangle vertex.
+
 ### Observation System
 **Players learn by witnessing:**
-- Creature movement patterns (day/night cycles)
+- Creature sleep schedules (timing patterns)
 - Feeding behavior and diet preferences
 - Territorial boundaries and nest locations
 - Reaction to player actions (sound, light, movement)
 - Inter-creature dynamics (hunts, conflicts, alliances)
 
 **Knowledge Tiers:**
-- Tier 1: Basic identification (what is this?)
-- Tier 2: Behavior patterns (when/where it hunts)
-- Tier 3: Weakness/relationship (how to pass safely)
+- Tier 1: Basic identification (what is this? what does it eat?)
+- Tier 2: Behavior patterns (when/where does it work? when does it rest?)
+- Tier 3: Weakness/relationship (how to safely bypass it?)
+
+### Player Interaction with Objects
+
+**Item Interaction System:**
+- Click on any object → context menu appears
+- **Food item on ground:** 
+  - `[Pick Up]` - Add to party inventory (can hold one item)
+  - `[Leave]` - Ignore
+- **Item in party possession:**
+  - `[Drop]` - Place at current location
+  - `[Examine]` - View details
+- **Spawn zone / Obstacle:**
+  - `[Examine]` - Learn about it
+
+**Party Inventory:**
+- Party can carry ONE item at a time
+- Carrying item displays visually at party's forward-facing direction
+- Can drop item to free up space or strategically place it
+
+**Strategic Uses:**
+- Drop food to lure creatures away from your path
+- Position food to trigger creature conflicts
+- Follow creature carrying food to discover their hiding spots
+- Block passages or create "bait zones"
 
 ### Avoidance Mechanics
 
