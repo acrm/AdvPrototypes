@@ -8,3 +8,4 @@
 - 2026w10-2.1 — Add pathfinding, creature movement, and rotating triangles
 - 2026w10-3.1 — Added grid-based pathfinding system, dungeon walls, diagonal movement, and cursor feedback
 - 2026w10-4.1 — ASCII map loader with grid-aligned objects and creatures
+- 2026w10-4.2 — Fixed wall center positioning and dungeon layout row count

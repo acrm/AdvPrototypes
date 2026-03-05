@@ -45,7 +45,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
   const wallColor = '#4A3F35'
 
   // Parse dungeon layout
-  const lines = DUNGEON_LAYOUT.split('\n')
+  const lines = DUNGEON_LAYOUT.split('\n').filter(line => line.length > 0) // Remove empty lines
   
   // Counters for unique IDs
   let ratCount = 0
@@ -69,7 +69,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
           map.objects.push({
             id: `wall_${col}_${row}`,
             type: 'obstacle',
-            position: { x: col * GRID_SIZE, y: row * GRID_SIZE }, // Walls use top-left corner
+            position: gridToWorld(col, row), // Use grid center like other objects
             width: GRID_SIZE,
             height: GRID_SIZE,
             color: wallColor,
