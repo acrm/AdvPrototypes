@@ -38,6 +38,55 @@ export const DungeonGame: React.FC = () => {
     return nearby || null
   }
 
+  const interactWithItem = (state: GameState, item: Item): GameState => {
+    // Pick up if close enough and inventory is empty
+    if (!state.party.carriedItem && distanceBetween(state.party.position, item.position) <= PICKUP_RADIUS) {
+      return {
+        ...state,
+        map: {
+          ...state.map,
+          items: state.map.items.filter((existingItem) => existingItem.id !== item.id),
+        },
+        party: {
+          ...state.party,
+          carriedItem: item,
+          path: [],
+          targetPosition: null,
+        },
+        isMoving: false,
+        selectedObject: null,
+      }
+    }
+
+    // Move toward item for pickup if it is not nearby
+    const itemPath = findPathWithObstacles(
+      state.party.position,
+      item.position,
+      state.map.objects,
+      state.map.width,
+      state.map.height
+    )
+
+    if (itemPath.length === 0) {
+      return {
+        ...state,
+        isMoving: false,
+        selectedObject: item,
+      }
+    }
+
+    return {
+      ...state,
+      party: {
+        ...state.party,
+        path: itemPath,
+        targetPosition: item.position,
+      },
+      isMoving: true,
+      selectedObject: item,
+    }
+  }
+
   const dropCarriedItemAtPosition = (state: GameState, dropPosition: Vector2): GameState => {
     if (!state.party.carriedItem) {
       return state
@@ -296,49 +345,7 @@ export const DungeonGame: React.FC = () => {
       }
       for (const item of prev.map.items) {
         if (isPointInRect(clickPos, item)) {
-          // Pick up if close enough and inventory is empty
-          if (!prev.party.carriedItem && distanceBetween(prev.party.position, item.position) <= PICKUP_RADIUS) {
-            return {
-              ...prev,
-              map: {
-                ...prev.map,
-                items: prev.map.items.filter((existingItem) => existingItem.id !== item.id),
-              },
-              party: {
-                ...prev.party,
-                carriedItem: item,
-              },
-              selectedObject: null,
-            }
-          }
-
-          // Move toward item for pickup if it is not nearby
-          const itemPath = findPathWithObstacles(
-            prev.party.position,
-            item.position,
-            prev.map.objects,
-            prev.map.width,
-            prev.map.height
-          )
-
-          if (itemPath.length === 0) {
-            return {
-              ...prev,
-              isMoving: false,
-              selectedObject: item,
-            }
-          }
-
-          return {
-            ...prev,
-            party: {
-              ...prev.party,
-              path: itemPath,
-              targetPosition: item.position,
-            },
-            isMoving: true,
-            selectedObject: item,
-          }
+          return interactWithItem(prev, item)
         }
       }
       if (isPointInRect(clickPos, prev.map.artifact)) {
@@ -402,6 +409,25 @@ export const DungeonGame: React.FC = () => {
     })
   }, [])
 
+  const handlePickUpSelected = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.selectedObject || prev.selectedObject.type !== 'item') {
+        return prev
+      }
+
+      const selectedItem = prev.map.items.find((item) => item.id === prev.selectedObject?.id)
+      if (!selectedItem) {
+        return prev
+      }
+
+      return interactWithItem(prev, selectedItem)
+    })
+  }, [])
+
+  const handleDropCarried = useCallback(() => {
+    setGameState((prev) => dropCarriedItemAtPosition(prev, prev.party.position))
+  }, [])
+
   const isPointInRect = (point: Vector2, obj: GameObject): boolean => {
     return (
       point.x >= obj.position.x - obj.width / 2 &&
@@ -421,6 +447,12 @@ export const DungeonGame: React.FC = () => {
         selectedObject={gameState.selectedObject}
         party={gameState.party}
         cycleTime={gameState.cycleTime}
+        canPickUpSelected={
+          gameState.selectedObject?.type === 'item' && !gameState.party.carriedItem
+        }
+        canDropCarried={Boolean(gameState.party.carriedItem)}
+        onPickUpSelected={handlePickUpSelected}
+        onDropCarried={handleDropCarried}
       />
     </div>
   )

@@ -14,3 +14,5 @@
 - 2026w10-6.1 — Fix creature wall collisions and add item carry mechanics
 - 2026w10-6.2 — Refine retro monospace info panel styling
 - 2026w10-7.1 — Refine retro monospace info panel styling
+- 2026w10-7.2 — Save updated docs and improve Info panel formatting/actions
+- 2026w10-8.1 — Save updated docs and improve Info panel formatting/actions

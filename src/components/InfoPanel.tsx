@@ -6,9 +6,21 @@ interface InfoPanelProps {
   selectedObject: GameObject | null
   party: Party
   cycleTime: number
+  canPickUpSelected: boolean
+  canDropCarried: boolean
+  onPickUpSelected: () => void
+  onDropCarried: () => void
 }
 
-export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party, cycleTime }) => {
+export const InfoPanel: React.FC<InfoPanelProps> = ({
+  selectedObject,
+  party,
+  cycleTime,
+  canPickUpSelected,
+  canDropCarried,
+  onPickUpSelected,
+  onDropCarried,
+}) => {
   const getTimeOfDay = (cycle: number): string => {
     // 0-60: Night, 60-120: Morning, 120-180: Day, 180-240: Evening
     if (cycle < 60) return '🌙 Night'
@@ -18,39 +30,39 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party, cyc
   }
 
   const displayPartyInfo = (): string => {
-    let info = `# PARTY STATUS\n\n`
-    info += `**Time:** ${getTimeOfDay(cycleTime)} (${Math.floor(cycleTime)}s)\n\n`
-    info += `**Members:** ${party.members.join(', ')}\n\n`
-    info += `**Position:** (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
-    info += `**Carrying:** ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
-    info += `**Observed Creatures:** ${party.observedCreatures.size}\n\n`
-    info += `**Controls:** Click item to pick up. Click party to drop.\n\n`
-    info += `**Progress:** Searching for artifact...`
+    let info = `= PARTY STATUS =\n\n`
+    info += `[TIME] ${getTimeOfDay(cycleTime)} (${Math.floor(cycleTime)}s)\n\n`
+    info += `[MEMBERS] ${party.members.join(', ')}\n\n`
+    info += `[POSITION] (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
+    info += `[CARRYING] ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
+    info += `[OBSERVED] ${party.observedCreatures.size} creatures\n\n`
+    info += `[CONTROLS] Use [PICK UP] and [DROP] buttons below\n\n`
+    info += `[PROGRESS] Searching for artifact...`
     return info
   }
 
   const getCreatureDescription = (creature: Creature): string => {
-    let desc = `**${creature.name}**\n\n`
+    let desc = `= ${creature.name.toUpperCase()} =\n\n`
     desc += `${creature.description}\n\n`
     
     // Show current state
     const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
-    desc += `**State:** ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
+    desc += `[STATE] ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
     
     // Show sleep schedule
     const sleepStart = Math.floor(creature.sleepSchedule.sleepStart)
     const sleepEnd = Math.floor(creature.sleepSchedule.sleepEnd)
-    desc += `**Sleep:** ${sleepStart}-${sleepEnd}s ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
+    desc += `[SLEEP] ${sleepStart}-${sleepEnd}s ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
     
-    if (creature.behavior) desc += `**Behavior:** ${creature.behavior}\n`
-    if (creature.diet) desc += `**Diet:** ${creature.diet}\n`
-    if (creature.threat) desc += `**Threat Level:** ${creature.threat}\n`
+    if (creature.behavior) desc += `[BEHAVIOR] ${creature.behavior}\n`
+    if (creature.diet) desc += `[DIET] ${creature.diet}\n`
+    if (creature.threat) desc += `[THREAT] ${creature.threat}\n`
     
     if (creature.preferredFoodTypes && creature.preferredFoodTypes.length > 0) {
-      desc += `**Food Preferences:** ${creature.preferredFoodTypes.join(', ')}\n`
+      desc += `[FOOD PREFERENCES] ${creature.preferredFoodTypes.join(', ')}\n`
     }
     
-    desc += `\n**Times Observed:** ${party.observedCreatures.get(creature.id) || 0}`
+    desc += `\n[TIMES OBSERVED] ${party.observedCreatures.get(creature.id) || 0}`
     return desc
   }
 
@@ -60,7 +72,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party, cyc
     if (selectedObject.type === 'creature') {
       content = getCreatureDescription(selectedObject as Creature)
     } else {
-      content = `# ${selectedObject.name}\n\n${selectedObject.description}`
+      content = `= ${selectedObject.name.toUpperCase()} =\n\n${selectedObject.description}\n\n[TYPE] ${selectedObject.type}`
     }
   } else {
     content = displayPartyInfo()
@@ -73,6 +85,24 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party, cyc
       </div>
       <div className="panel-content">
         <InfoContent text={content} />
+        <div className="panel-actions">
+          <button
+            type="button"
+            className="action-button"
+            disabled={!canPickUpSelected}
+            onClick={onPickUpSelected}
+          >
+            [PICK UP]
+          </button>
+          <button
+            type="button"
+            className="action-button"
+            disabled={!canDropCarried}
+            onClick={onDropCarried}
+          >
+            [DROP]
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -88,18 +118,43 @@ const InfoContent: React.FC<InfoContentProps> = ({ text }) => {
   return (
     <div className="info-content">
       {lines.map((line, idx) => {
-        if (line.startsWith('# ')) {
-          return <h3 key={idx}>{line.substring(2)}</h3>
-        } else if (line.startsWith('**') && line.endsWith('**')) {
+        const trimmed = line.trim()
+
+        if (trimmed.startsWith('=') && trimmed.endsWith('=')) {
+          return <h3 key={idx}>{trimmed}</h3>
+        } else if (trimmed.startsWith('[')) {
+          const closingBracketIndex = trimmed.indexOf(']')
+          if (closingBracketIndex > 0) {
+            const tag = trimmed.substring(0, closingBracketIndex + 1)
+            const rest = trimmed.substring(closingBracketIndex + 1).trim()
+            if (rest.length > 0) {
+              return (
+                <p key={idx} className="tag-line">
+                  <span className="tag">{tag}</span> {rest}
+                </p>
+              )
+            }
+            return (
+              <p key={idx} className="tag-line">
+                <span className="tag">{tag}</span>
+              </p>
+            )
+          }
           return (
-            <p key={idx} className="bold">
-              {line.substring(2, line.length - 2)}
+            <p key={idx} className="tag-line">
+              {trimmed}
             </p>
           )
-        } else if (line.trim() === '') {
+        } else if (trimmed === '') {
           return <div key={idx} style={{ height: '0.5rem' }} />
+        } else if (trimmed.startsWith('-')) {
+          return (
+            <p key={idx} className="bold">
+              {trimmed}
+            </p>
+          )
         } else {
-          return <p key={idx}>{line}</p>
+          return <p key={idx}>{trimmed}</p>
         }
       })}
     </div>

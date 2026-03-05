@@ -52,6 +52,7 @@ Output goes to `dist/` folder.
 - **Left click on item:** Move to item and pick it up (or pick instantly if close)
 - **Left click near party while carrying:** Drop carried item
 - **Left click on party while carrying:** Drop carried item at party position
+- **Info panel buttons:** `[PICK UP]` for selected item, `[DROP]` for carried item
 
 **Creatures (D&D Bestiary):**
 - **Giant Rats** - Nocturnal scavengers, fear light, swarm in numbers

@@ -18,8 +18,51 @@
 - [ ] Deterministic waypoint generation for patrol routes
 - [x] State transitions based on cycle time
 
+### Visibility & Detection System
+- [ ] Creature detection radius (varies by species)
+- [ ] Vision mechanics: sleeping (no detection), idle (periodic checks), patrol (full awareness)
+- [ ] Player detection trigger (line of sight, noise, collision)
+- [ ] ALERT state for creatures (heightened awareness when detecting player)
+- [ ] Detection feedback (visual alert icon or warning)
+
+### Territorial System
+- [ ] Spawn zones defined in dungeon layout (zone types, not individual creatures)
+- [ ] Creature assignment to zone types
+- [ ] Territorial boundaries visualization
+- [ ] Creature movement between adjacent same-type zones
+- [ ] Territorial conflict simulation (when creatures invade territories)
+
+### Player Health System
+- [ ] 3-heart health display (one per party member)
+- [ ] Damage mechanic (creature collision, environmental hazard)
+- [ ] Speed penalty based on health:
+  - 3 Health: Normal speed
+  - 2 Health: 25% slower
+  - 1 Health: 50% slower
+- [ ] Health recovery: eating safe food restores 1 health
+- [ ] Loss condition: 0 Health = game over
+- [ ] Safe food types: fungi, organic matter, insects
+- [ ] Dangerous food types: meat (spoiled), certain fungi (hallucinogenic)
+
+### Trapping & Domestication Mechanics
+- [ ] Trap item type (player can carry and place)
+- [ ] Trap placement UI action
+- [ ] Trap detection by creatures (triggered on collision)
+- [ ] Trapped creature state: immobilized 10-15 seconds
+- [ ] Enraged state: creature becomes hostile to player specifically after escaping trap
+- [ ] Priming/Feeding: drop food in creature's sight to begin taming
+- [ ] Friendly state: after 3+ feedings, creature becomes non-hostile
+- [ ] Friendly creature benefits: safe observation, no attacks, spreads non-aggression
+
+### Movement & Sound System
+- [ ] Speed tiers: fast (noisy), medium (normal), slow (quiet)
+- [ ] Sound generation based on speed and movement distance
+- [ ] Creature hearing based on state (patrol hears more than idle)
+- [ ] Noise propagation through zones (alert chains)
+- [ ] Standing still: complete silence
+
 ### Food & Feeding System
-- [x] Food item type: fungi, organic_matter, meat, insects
+- [x] Food item types: fungi, organic_matter, meat, insects
 - [ ] Spawn zones (semi-transparent, respawning food)
 - [ ] Creatures pick up and carry food
 - [ ] Creatures move to feeding locations (species-specific behavior)
@@ -27,42 +70,57 @@
 - [ ] Food disappears after consumption
 - [ ] Visual rendering of carried food at creature's forward vertex
 
-### Player Interaction System
-- [x] Object click detection and interaction
-- [x] "Pick Up" action for items
+### Player Interaction System - Object Actions
+- [x] Object click detection 
+- [x] "Pick Up" action for food items
 - [x] "Drop" action for carrying items
-- [x] Party inventory (can hold one item at a time)
-- [x] Visual feedback for held items (display at party direction)
-- [ ] Examine action for spawn zones and obstacles
+- [x] "Examine" action for objects
+- [x] Party inventory (one item max)
+- [x] Visual feedback for held items at party direction
+- [ ] "Eat" action for safe food items
+- [ ] "Eat" action feedback (animation, health gain message)
+- [ ] Health indicator (3 hearts) displayed in UI
+- [ ] Speed penalty visualization when wounded
 
 ### Creature Species (MVP)
-- [ ] Giant Rats (nocturnal sleep pattern, fungi/organic preference)
-- [ ] Giant Spiders (alert, eat-on-site behavior)
-- [ ] Goblins (organized, carry to den behavior)
-- [ ] Owlbear (minimal sleep, apex predator)
+- [ ] Giant Rats (nocturnal sleep pattern, fungi/organic preference, zone: Rat Warren)
+- [ ] Giant Spiders (alert, eat-on-site behavior, zone: Spider Nest)
+- [ ] Goblins (organized, carry to den behavior, zone: Goblin Warren)
+- [ ] Owlbear (minimal sleep, apex predator, zone: Owlbear Lair)
+- [ ] Species-specific detection radius values
+- [ ] Species-specific enrage behavior after trap escape
 
 ### Observation & Information
-- [ ] Creature detection when visible on screen
-- [ ] Info panel showing selected object details
-- [ ] Display creature state when selected
+- [ ] Creature state display when selected
 - [ ] Show food type information
-- [ ] Display spawn zone details
+- [ ] Display zone/territory information
+- [ ] Info panel shows creature detection status
+- [ ] Visual indicator for friendly creatures
+- [ ] Visual indicator for enraged creatures
+- [ ] Health heart display in UI
 
 ### Artifact & Objective
 - [ ] Owlbear lair location with artifact
-- [ ] Win condition check (artifact + at entrance)
-- [ ] Basic map with clear path to artifact
-- [ ] Visual marker for entrance and artifact
+- [ ] Win condition: have artifact + reach entrance
+- [ ] Entrance location clearly marked
+- [ ] Clear path possibility to artifact despite dangers
+- [ ] Creature placement creates strategic challenge
 
-### Testing
-- [ ] Playtest creature sleep cycles (visible state changes)
-- [ ] Verify creature feeding behavior works
-- [ ] Test player object pickup/dropping
-- [ ] Test various creature sleep patterns (can bypass sleeping ones)
+### Testing & Balance
+- [ ] Playtest visibility: can player observe creatures without being detected?
+- [ ] Playtest territorial conflicts: do they create usable windows?
+- [ ] Playtest feeding taming: does 3x priming feel like reasonable effort?
+- [ ] Playtest traps: is trapping-and-enraging a viable tactic?
+- [ ] Playtest health system: do 3 hearts feel right for difficulty?
+- [ ] Playtest speed penalties: is movement constraint harsh enough when wounded?
+- [ ] Verify creature zones are respected (no zone crossing)
+- [ ] Verify artifact is accessible via multiple routes
+- [ ] Test friendly creature behavior (safe observation)
+- [ ] Test enraged creature behavior (aggressive, hunts player)
+- [ ] Verify food respawning in zones
+- [ ] Verify player cannot eat dangerous food (meat, hallucinogenic fungi)
 
 ---
-
-## Phase 2: Ecosystem Expansion
 
 ## Phase 2: Ecosystem Expansion
 
@@ -73,79 +131,135 @@
 - [ ] Population control (too many creatures = food scarcity)
 
 ### Creature Interactions
-- [ ] Predator/prey dynamics (spiders hunt insects)
-- [ ] Territorial disputes between creatures
-- [ ] Feeding conflicts (competition for resources)
-- [ ] Pack behavior (rats swarm, goblins coordinate)
+- [ ] Predator/prey dynamics (spiders hunt insects, owlbear hunts all)
+- [ ] Territorial disputes between creatures (visible conflicts)
+- [ ] Feeding conflicts (competition for resources creates temporary lulls)
+- [ ] Pack/swarm behavior (rats swarm when alert, goblins coordinate)
+- [ ] Pack leadership (alpha creatures influence swarm behavior)
+- [ ] Creature communication (howls, squeaks signal other creatures)
 
-### Extended Bestiary
-- [ ] Myconids (slow, detoxify areas)
-- [ ] More creature species (cave fish, bats, wolves, etc.)
-- [ ] Environmental creatures (insects, small harmless life)
+### Extended Bestiary (Phase 2+)
+- [ ] Myconids (slow fungal entities, detoxify certain areas)
+- [ ] Cave insects (numerous, harmless, spider food)
+- [ ] Bats (nocturnal, avoid them)
+- [ ] Wolves (pack predators, territorial)
+- [ ] Drow scouts (intelligent, magical)
 
 ### Advanced Knowledge System
-- [ ] Multi-tier creature knowledge (identification → behavior → feeding spots)
-- [ ] Knowledge persistence across saves
-- [ ] Discovery journal with creature entries and notes
-- [ ] Creature behavior learning (become wary of player)
+- [ ] Multi-tier creature knowledge (ID → behavior → vulnerabilities)
+- [ ] Knowledge persistence across playthroughs
+- [ ] Discovery journal with creature entries
+- [ ] Creature behavior learning (become wary of specific player tactics)
+- [ ] Creature trait discovery (speed, intelligence, aggression)
 
-### Multiple Routes
-- [ ] Stealth path (around enemies, use sleep cycles)
-- [ ] Feeding path (use food to distract/redirect)
-- [ ] Predator path (use predator/prey dynamics)
-- [ ] Environmental path (use obstacles and hazards)
+### Multiple Routes & Solutions
+- [ ] Stealth path (use sleep cycles to bypass creatures)
+- [ ] Feeding/Taming path (domesticate creatures for safe passage)
+- [ ] Trap/Diversion path (trap hazardous creatures to clear paths)
+- [ ] Territorial path (use predator/prey conflicts as cover)
+- [ ] Environmental hazard path (navigate using natural obstacles)
+- [ ] Combination paths (mix multiple strategies)
 
 ---
 
 ## Phase 3: Polish & Depth
 
-### Advanced Features
-- [ ] Stealth mechanics (noise generation, detection radius)
-- [ ] Light source mechanics (torch/darkness affect visibility)
-- [ ] Hazardous terrain (toxic zones, unstable floors)
-- [ ] Sound effects and creature vocalizations
-- [ ] Scent/smell tracking for predators
-- [ ] Combat as ultimate failure state (shows why avoidance needed)
-- [ ] Creature swarms and pack dynamics
-- [ ] Gelatinous Cube encounter (major setpiece)
+### Advanced Detection & Evasion
+- [ ] Scent/smell tracking for predators (owlbear, wolves)
+- [ ] Creature learning system (become wary of specific player tactics)
+- [ ] Creature communication network (warnings spread through zones)
+- [ ] Sophisticated hearing simulation (echoes, distance calculations)
+- [ ] Light and shadow mechanics (torch attracts/repels different creatures)
 
-### UI/UX Improvements
-- [ ] Better creature state visualization (icons, effects)
-- [ ] Threat level indicators
-- [ ] Cycle timer display
-- [ ] Inventory management UI
-- [ ] Map memory (what you've explored)
-- [ ] Quest log with objectives
+### Combat Failure State
+- [ ] Combat system (if player cornered, must fight)
+- [ ] Combat shows why avoidance is critical (high damage)
+- [ ] Creature combat AI (pack coordination, tactics)
+- [ ] Surrender option (if overwhelmed)
 
-### Narrative & Atmosphere
-- [ ] Environmental storytelling through creature behavior
-- [ ] Artifact lore and purpose
-- [ ] Discovery of past events through ecosystem clues
-- [ ] End-game narrative consequences
+### Hazardous Environment
+- [ ] Toxic air zones (damage over time)
+- [ ] Unstable terrain (risk of collapse)
+- [ ] Underground lakes (depth/drowning risk)
+- [ ] Myconid spore zones (hallucinogenic effects)
+- [ ] Pressure plates and triggers
 
-### Emergent & Dynamic Systems
-- [ ] Creature behavior learning from player (become cautious)
-- [ ] Long-term ecosystem changes (deplete rat population = food chain shifts)
-- [ ] Dynamic encounters (creatures modify patterns)
-- [ ] Food source management (run out of food = desperation)
+### UI/UX Enhancements
+- [ ] Threat level indicators (distance to nearest danger)
+- [ ] Cycle timer display (shows current time in 240s cycle)
+- [ ] Inventory management UI (show carried item)
+- [ ] Map memory (explored vs unexplored areas)
+- [ ] Creature trait visualization (aggression level, speed)
+- [ ] Status effects display (enraged, friendly, trapped)
+
+### Narrative & Storytelling
+- [ ] Artifact lore (what is it? why does player need it?)
+- [ ] Creature backstory (through behavior observation)
+- [ ] Environmental storytelling (signs of past events)
+- [ ] End-game revelation (consequences of retrieving artifact)
+- [ ] Multiple endings (based on actions, creature fates)
+
+### Emergent Systems
+- [ ] Food chain consequences (if rats eliminated, herbivore chain breaks)
+- [ ] Creature adaptation (become more cautious if player aggressive)
+- [ ] Pack leadership dynamics (alpha creature changes behavior pattern)
+- [ ] Territory reclamation (if predator dies, others claim territory)
+- [ ] Ecosystem collapse scenarios (possible failure states)
 
 ---
 
-## Known Issues & Notes
-- Sleep cycle variation should be deterministic per creature (seed-based)
-- Food carrying animation needs smooth visual integration
-- Spawn zones respawn timer needs to handle consumed vs missed food
+## Known Issues & Implementation Notes
 
-## Technical Debt / Considerations
-- Creature AI architecture needs to be easily extensible (add new species)
-- Food interaction system should support future mechanics (poisoning, disease)
-- Save/load progress for longer playtests
-- Performance optimization for many simultaneous creatures
-- Deterministic waypoint generation (seed-based)
+**Determinism:**
+- All creature behaviors seeded for consistency across playthroughs
+- Sleep variation per creature uses consistent PRNG
+- Waypoint generation deterministic per creature ID
 
-## Testing Priorities
-1. **Learnability:** Can player intuitively discover creature sleep patterns?
-2. **Playability:** Can player reach artifact using only observation and food manipulation?
-3. **Fairness:** Are there always viable non-combat solutions?
+**Zone System:**
+- Creatures respect assigned zone type (never permanently leave)
+- Can transition through adjacent zones of same type
+- Zone letters in dungeon layout define zone type, not creature placement
+
+**Health & Damage:**
+- Damage always triggers from collision, not proximity
+- Player can run away even at low health (risky but possible)
+- Health penalty affects speed, not other abilities
+
+**Trap System:**
+- Traps are temporary solutions (enragement creates counterplay)
+- Trapped creature damage based on size/species
+- Can chain traps but enraged creatures more alert
+
+**Food Taming:**
+- 3 feedings threshold feels right for difficulty
+- Friendly creatures still follow their schedules (not permanent followers)
+- Cannot un-friendly a creature without extreme effort
+
+## Technical Debt & Optimizations
+
+- Creature AI architecture (easy species additions)
+- Pathfinding for creature waypoints (A* or simple patrol)
+- Zone-based culling (don't simulate off-screen creatures heavily)
+- Save/load system (for longer playtests)
+- Performance with 10+ creatures on screen
+- Procedural zone generation from text layout
+
+## Testing & Balance Priorities
+
+**Critical:**
+1. Can player reach artifact without being forced to fight? (core principle)
+2. Do visibility mechanics feel tense but fair?
+3. Do health/speed penalties create meaningful challenges?
+
+**Important:**
+4. Do sleep cycles feel learnable and useful?
+5. Is trap/taming/territorial system understandable?
+6. Are all three (4+) starting zones viable for progression?
+
+**Nice to Have:**
+7. Do creature conflicts create dramatic moments?
+8. Can player invent creative solutions beyond planned routes?
+9. Does the ecosystem feel "alive" and reactive?
+
 4. **Balance:** Is any single strategy obviously dominant (thus others useless)?
 5. **Determinism:** Do creatures follow consistent, predictable patterns across playthroughs?
