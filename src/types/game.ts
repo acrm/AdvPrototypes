@@ -23,6 +23,9 @@ export interface Creature extends GameObject {
   behavior?: string
   diet?: string
   threat?: string
+  direction: number // angle in radians
+  waypoints: Vector2[] // random movement path
+  speed: number // movement speed
 }
 
 export interface Obstacle extends GameObject {
@@ -43,6 +46,7 @@ export interface Party {
   path: Vector2[]
   targetPosition: Vector2 | null
   observedCreatures: Map<string, number> // id -> times observed
+  direction: number // angle in radians
 }
 
 export interface GameMap {

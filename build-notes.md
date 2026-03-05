@@ -5,3 +5,4 @@
 - 2026w10-0.3 — Add GitHub Actions workflow for automatic Pages deployment
 - 2026w10-1.1 — Initialize dungeon ecosystem prototype with movement, creatures, and info panel
 - 2026w10-1.2 — Fix info panel logic and track creature observations
+- 2026w10-2.1 — Add pathfinding, creature movement, and rotating triangles

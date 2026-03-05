@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { GameState, Vector2, GameObject } from '../types/game'
 import { initializeMap } from '../systems/MapGenerator'
+import { findPathWithObstacles } from '../systems/Pathfinding'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
 import './DungeonGame.css'
@@ -14,6 +15,7 @@ export const DungeonGame: React.FC = () => {
       path: [],
       targetPosition: null,
       observedCreatures: new Map(),
+      direction: -Math.PI / 2, // pointing up initially
     },
     selectedObject: null,
     gameTime: 0,
@@ -62,7 +64,7 @@ export const DungeonGame: React.FC = () => {
 
         return {
           ...prev,
-          party: { ...prev.party, position: newPos, path },
+          party: { ...prev.party, position: newPos, path, direction: angle },
           gameTime: prev.gameTime + 0.001,
         }
       })
@@ -71,21 +73,70 @@ export const DungeonGame: React.FC = () => {
     return () => clearInterval(interval)
   }, [gameState.isMoving])
 
-  // Simple A* pathfinding (simplified version)
-  const findPath = (start: Vector2, end: Vector2): Vector2[] => {
-    // For prototype: just return waypoints to move towards end
-    // More sophisticated pathfinding can be added later
-    const path: Vector2[] = []
-    const steps = 20
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps
-      path.push({
-        x: start.x + (end.x - start.x) * t,
-        y: start.y + (end.y - start.y) * t,
+  // Creature random movement
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGameState((prev) => {
+        const updatedCreatures = prev.map.creatures.map((creature) => {
+          // If no waypoints, generate new ones
+          if (creature.waypoints.length === 0) {
+            return {
+              ...creature,
+              waypoints: [
+                {
+                  x: Math.random() * (prev.map.width - 200) + 100,
+                  y: Math.random() * (prev.map.height - 200) + 100,
+                },
+              ],
+            }
+          }
+
+          const target = creature.waypoints[0]
+          const distance = Math.sqrt(
+            Math.pow(target.x - creature.position.x, 2) +
+            Math.pow(target.y - creature.position.y, 2)
+          )
+
+          // Reached waypoint, remove it and add a new one
+          if (distance < creature.speed * 2) {
+            const newWaypoints = [...creature.waypoints]
+            newWaypoints.shift()
+            // Add new random waypoint
+            newWaypoints.push({
+              x: Math.random() * (prev.map.width - 200) + 100,
+              y: Math.random() * (prev.map.height - 200) + 100,
+            })
+            return { ...creature, waypoints: newWaypoints }
+          }
+
+          // Move towards waypoint
+          const angle = Math.atan2(target.y - creature.position.y, target.x - creature.position.x)
+          const newPos = {
+            x: creature.position.x + Math.cos(angle) * creature.speed,
+            y: creature.position.y + Math.sin(angle) * creature.speed,
+          }
+
+          // Keep within map bounds
+          newPos.x = Math.max(30, Math.min(prev.map.width - 30, newPos.x))
+          newPos.y = Math.max(30, Math.min(prev.map.height - 30, newPos.y))
+
+          return {
+            ...creature,
+            position: newPos,
+            direction: angle,
+          }
+        })
+
+        return {
+          ...prev,
+          map: { ...prev.map, creatures: updatedCreatures },
+          gameTime: prev.gameTime + 0.0005,
+        }
       })
-    }
-    return path
-  }
+    }, 50) // Update creatures every 50ms
+
+    return () => clearInterval(interval)
+  }, [])
 
   const handleCanvasClick = useCallback((clickPos: Vector2) => {
     setGameState((prev) => {
@@ -128,7 +179,13 @@ export const DungeonGame: React.FC = () => {
       }
 
       // Otherwise, move party to clicked position
-      const path = findPath(prev.party.position, clickPos)
+      const path = findPathWithObstacles(
+        prev.party.position,
+        clickPos,
+        prev.map.objects,
+        prev.map.width,
+        prev.map.height
+      )
       return {
         ...prev,
         party: {

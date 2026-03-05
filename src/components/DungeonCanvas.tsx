@@ -64,7 +64,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
 
     // Draw creatures (triangles - pointed rectangles)
     for (const creature of gameState.map.creatures) {
-      drawTriangle(ctx, creature.position, creature.color, 15)
+      drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
     }
 
     // Draw party path (dashed line)
@@ -99,7 +99,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     // Draw party (white triangle)
-    drawTriangle(ctx, gameState.party.position, '#fff', 20)
+    drawTriangle(ctx, gameState.party.position, '#fff', 20, gameState.party.direction)
   }, [gameState])
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -107,8 +107,11 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    // Account for canvas scaling
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
 
     onCanvasClick({ x, y })
   }
@@ -128,14 +131,21 @@ function drawTriangle(
   ctx: CanvasRenderingContext2D,
   position: Vector2,
   color: string,
-  size: number
+  size: number,
+  direction: number = -Math.PI / 2 // default pointing up
 ) {
+  ctx.save()
+  ctx.translate(position.x, position.y)
+  ctx.rotate(direction)
+  
   ctx.fillStyle = color
   ctx.beginPath()
-  // Point upward
-  ctx.moveTo(position.x, position.y - size / 1.5)
-  ctx.lineTo(position.x + size / 2, position.y + size / 2)
-  ctx.lineTo(position.x - size / 2, position.y + size / 2)
+  // Elongated triangle pointing right (will be rotated)
+  ctx.moveTo(size * 0.8, 0) // tip
+  ctx.lineTo(-size * 0.5, size * 0.4) // bottom left
+  ctx.lineTo(-size * 0.5, -size * 0.4) // top left
   ctx.closePath()
   ctx.fill()
+  
+  ctx.restore()
 }

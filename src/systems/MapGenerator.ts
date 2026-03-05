@@ -1,5 +1,17 @@
 import { GameMap, Creature } from '../types/game'
 
+// Helper to generate random waypoints for creature movement
+function generateRandomWaypoints(mapWidth: number, mapHeight: number, count: number = 3) {
+  const waypoints = []
+  for (let i = 0; i < count; i++) {
+    waypoints.push({
+      x: Math.random() * (mapWidth - 200) + 100,
+      y: Math.random() * (mapHeight - 200) + 100,
+    })
+  }
+  return waypoints
+}
+
 export function initializeMap(): GameMap {
   const map: GameMap = {
     width: 1200,
@@ -64,10 +76,10 @@ export function initializeMap(): GameMap {
   )
 
   // Create passive creatures (various types)
-  const creatures: Creature[] = [
+  const creaturesBase = [
     {
       id: 'rat_1',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 200, y: 300 },
       width: 15,
       height: 15,
@@ -80,7 +92,7 @@ export function initializeMap(): GameMap {
     },
     {
       id: 'rat_2',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 250, y: 400 },
       width: 15,
       height: 15,
@@ -93,7 +105,7 @@ export function initializeMap(): GameMap {
     },
     {
       id: 'spider_1',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 450, y: 350 },
       width: 20,
       height: 20,
@@ -106,7 +118,7 @@ export function initializeMap(): GameMap {
     },
     {
       id: 'blind_fish',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 800, y: 250 },
       width: 12,
       height: 12,
@@ -119,7 +131,7 @@ export function initializeMap(): GameMap {
     },
     {
       id: 'salamander_1',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 700, y: 150 },
       width: 14,
       height: 14,
@@ -132,7 +144,7 @@ export function initializeMap(): GameMap {
     },
     {
       id: 'goblin_scout',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 400, y: 600 },
       width: 18,
       height: 18,
@@ -145,7 +157,7 @@ export function initializeMap(): GameMap {
     },
     {
       id: 'goblin_scout_2',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 550, y: 650 },
       width: 18,
       height: 18,
@@ -158,7 +170,7 @@ export function initializeMap(): GameMap {
     },
     {
       id: 'myconid_unit',
-      type: 'creature',
+      type: 'creature' as const,
       position: { x: 950, y: 500 },
       width: 22,
       height: 22,
@@ -170,6 +182,14 @@ export function initializeMap(): GameMap {
       threat: 'Medium (spores can cause effects)',
     },
   ]
+
+  // Add movement properties to all creatures
+  const creatures: Creature[] = creaturesBase.map((creature) => ({
+    ...creature,
+    direction: Math.random() * Math.PI * 2, // random initial direction
+    waypoints: generateRandomWaypoints(map.width, map.height, 3),
+    speed: 0.3 + Math.random() * 0.7, // random speed between 0.3 and 1.0
+  }))
 
   map.creatures = creatures
 
