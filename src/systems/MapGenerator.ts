@@ -1,31 +1,38 @@
-import { GameMap, Creature } from '../types/game'
-import { GRID_SIZE, snapToGrid } from './Pathfinding'
+import { GameMap, Vector2 } from '../types/game'
+import { GRID_SIZE } from './Pathfinding'
+import { DUNGEON_LAYOUT, GRID_COLS, GRID_ROWS } from '../data/dungeonLayout'
+
+// Helper to convert grid coordinates to world position (center of cell)
+function gridToWorld(gridX: number, gridY: number): Vector2 {
+  return {
+    x: gridX * GRID_SIZE + GRID_SIZE / 2,
+    y: gridY * GRID_SIZE + GRID_SIZE / 2,
+  }
+}
 
 // Helper to generate random waypoints for creature movement
-function generateRandomWaypoints(mapWidth: number, mapHeight: number, count: number = 3) {
+function generateRandomWaypoints(count: number = 3) {
   const waypoints = []
   for (let i = 0; i < count; i++) {
-    // Snap waypoints to grid centers
-    const rawPos = {
-      x: Math.random() * (mapWidth - 200) + 100,
-      y: Math.random() * (mapHeight - 200) + 100,
-    }
-    waypoints.push(snapToGrid(rawPos))
+    // Generate waypoints on grid centers
+    const gridX = Math.floor(Math.random() * (GRID_COLS - 2)) + 1
+    const gridY = Math.floor(Math.random() * (GRID_ROWS - 2)) + 1
+    waypoints.push(gridToWorld(gridX, gridY))
   }
   return waypoints
 }
 
-export function initializeMap(): GameMap {
+export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
   const map: GameMap = {
-    width: 1200,
-    height: 800,
+    width: GRID_COLS * GRID_SIZE,
+    height: GRID_ROWS * GRID_SIZE,
     objects: [],
     creatures: [],
     items: [],
     artifact: {
       id: 'artifact_main',
       type: 'artifact',
-      position: snapToGrid({ x: 1050, y: 350 }),
+      position: { x: 0, y: 0 }, // Will be set when parsing
       width: 20,
       height: 20,
       color: '#FFD700',
@@ -34,289 +41,229 @@ export function initializeMap(): GameMap {
     },
   }
 
-  // Create dungeon walls and corridors
-  // Outer walls
+  let partyStartPosition: Vector2 = gridToWorld(2, 2) // default fallback
   const wallColor = '#4A3F35'
-  
-  // Top wall
-  for (let x = 0; x < map.width; x += GRID_SIZE) {
-    map.objects.push({
-      id: `wall_top_${x}`,
-      type: 'obstacle',
-      position: { x, y: 0 },
-      width: GRID_SIZE,
-      height: GRID_SIZE,
-      color: wallColor,
-      name: 'Stone Wall',
-      description: 'Solid dungeon wall made of ancient stone.',
-    })
-  }
-  
-  // Bottom wall
-  for (let x = 0; x < map.width; x += GRID_SIZE) {
-    map.objects.push({
-      id: `wall_bottom_${x}`,
-      type: 'obstacle',
-      position: { x, y: map.height - GRID_SIZE },
-      width: GRID_SIZE,
-      height: GRID_SIZE,
-      color: wallColor,
-      name: 'Stone Wall',
-      description: 'Solid dungeon wall made of ancient stone.',
-    })
-  }
-  
-  // Left wall
-  for (let y = 0; y < map.height; y += GRID_SIZE) {
-    map.objects.push({
-      id: `wall_left_${y}`,
-      type: 'obstacle',
-      position: { x: 0, y },
-      width: GRID_SIZE,
-      height: GRID_SIZE,
-      color: wallColor,
-      name: 'Stone Wall',
-      description: 'Solid dungeon wall made of ancient stone.',
-    })
-  }
-  
-  // Right wall
-  for (let y = 0; y < map.height; y += GRID_SIZE) {
-    map.objects.push({
-      id: `wall_right_${y}`,
-      type: 'obstacle',
-      position: { x: map.width - GRID_SIZE, y },
-      width: GRID_SIZE,
-      height: GRID_SIZE,
-      color: wallColor,
-      name: 'Stone Wall',
-      description: 'Solid dungeon wall made of ancient stone.',
-    })
-  }
 
-  // Interior walls creating rooms and corridors
-  // Horizontal wall sections
-  const horizontalWalls = [
-    { startX: 200, endX: 500, y: 200 },
-    { startX: 600, endX: 900, y: 200 },
-    { startX: 200, endX: 400, y: 400 },
-    { startX: 700, endX: 1050, y: 450 },
-    { startX: 300, endX: 600, y: 600 },
-  ]
+  // Parse dungeon layout
+  const lines = DUNGEON_LAYOUT.split('\n')
   
-  for (const wall of horizontalWalls) {
-    for (let x = wall.startX; x <= wall.endX; x += GRID_SIZE) {
-      map.objects.push({
-        id: `wall_h_${x}_${wall.y}`,
-        type: 'obstacle',
-        position: { x, y: wall.y },
-        width: GRID_SIZE,
-        height: GRID_SIZE,
-        color: wallColor,
-        name: 'Stone Wall',
-        description: 'Solid dungeon wall made of ancient stone.',
-      })
+  // Counters for unique IDs
+  let ratCount = 0
+  let spiderCount = 0
+  let goblinCount = 0
+  let myconidCount = 0
+  let owlCount = 0
+  let batCount = 0
+  let wolfCount = 0
+  let koboldCount = 0
+  let itemCount = 0
+
+  for (let row = 0; row < lines.length; row++) {
+    const line = lines[row]
+    for (let col = 0; col < line.length; col++) {
+      const char = line[col]
+      const position = gridToWorld(col, row)
+
+      switch (char) {
+        case '#': // Wall
+          map.objects.push({
+            id: `wall_${col}_${row}`,
+            type: 'obstacle',
+            position: { x: col * GRID_SIZE, y: row * GRID_SIZE }, // Walls use top-left corner
+            width: GRID_SIZE,
+            height: GRID_SIZE,
+            color: wallColor,
+            name: 'Stone Wall',
+            description: 'Solid dungeon wall made of ancient stone.',
+          })
+          break
+
+        case 'P': // Party starting position
+          partyStartPosition = position
+          break
+
+        case '*': // Artifact
+          map.artifact.position = position
+          break
+
+        case '.': // Item
+          itemCount++
+          map.items.push({
+            id: `item_${itemCount}`,
+            type: 'item',
+            position,
+            width: 10,
+            height: 10,
+            color: '#FF8C00',
+            name: itemCount === 1 ? 'Torch' : itemCount === 2 ? 'Food Ration' : 'Treasure',
+            description: itemCount === 1 ? 'A lit torch for light.' : itemCount === 2 ? 'Dried provisions.' : 'A small treasure.',
+          })
+          break
+
+        case 'r': // Rat
+          ratCount++
+          map.creatures.push({
+            id: `rat_${ratCount}`,
+            type: 'creature',
+            position,
+            width: 15,
+            height: 15,
+            color: '#8B7355',
+            name: 'Giant Rat',
+            description: 'A large rodent, the size of a cat. Nocturnal scavenger.',
+            behavior: 'Forages at night, hides during day',
+            diet: 'Organic matter, fungi',
+            threat: 'Low (unless in swarms)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.4 + Math.random() * 0.3,
+          })
+          break
+
+        case 's': // Spider
+          spiderCount++
+          map.creatures.push({
+            id: `spider_${spiderCount}`,
+            type: 'creature',
+            position,
+            width: 20,
+            height: 20,
+            color: '#2F4F4F',
+            name: 'Giant Spider',
+            description: 'Massive arachnid with glistening fangs. Territorial and aggressive.',
+            behavior: 'Hunts from webs, very territorial',
+            diet: 'Flying insects, small creatures',
+            threat: 'Medium (webbing can immobilize)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.3 + Math.random() * 0.3,
+          })
+          break
+
+        case 'g': // Goblin
+          goblinCount++
+          map.creatures.push({
+            id: `goblin_${goblinCount}`,
+            type: 'creature',
+            position,
+            width: 18,
+            height: 18,
+            color: '#228B22',
+            name: 'Goblin Scout',
+            description: 'A small humanoid with greenish skin. Intelligent and organized.',
+            behavior: 'Patrols territory during daylight',
+            diet: 'Omnivorous, prefers meat',
+            threat: 'Medium (organized, uses tools/traps)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.5 + Math.random() * 0.3,
+          })
+          break
+
+        case 'm': // Myconid
+          myconidCount++
+          map.creatures.push({
+            id: `myconid_${myconidCount}`,
+            type: 'creature',
+            position,
+            width: 22,
+            height: 22,
+            color: '#9370DB',
+            name: 'Myconid (Fungal Entity)',
+            description: 'A large sentient fungal colony. Slow-moving and alien.',
+            behavior: 'Deliberate, communicates via spores',
+            diet: 'Decomposing organic matter',
+            threat: 'Medium (spores can cause effects)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.2 + Math.random() * 0.2,
+          })
+          break
+
+        case 'o': // Owl
+          owlCount++
+          map.creatures.push({
+            id: `owl_${owlCount}`,
+            type: 'creature',
+            position,
+            width: 16,
+            height: 16,
+            color: '#D3D3D3',
+            name: 'Cave Owl',
+            description: 'A large nocturnal bird. Silent hunter with excellent vision.',
+            behavior: 'Roosts during day, hunts at night',
+            diet: 'Small rodents, insects',
+            threat: 'Low (avoids humanoids)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.6 + Math.random() * 0.3,
+          })
+          break
+
+        case 'b': // Bat
+          batCount++
+          map.creatures.push({
+            id: `bat_${batCount}`,
+            type: 'creature',
+            position,
+            width: 12,
+            height: 12,
+            color: '#1C1C1C',
+            name: 'Giant Bat',
+            description: 'Large flying mammal with echolocation. Lives in colonies.',
+            behavior: 'Sleeps hanging from ceiling, flies erratically',
+            diet: 'Insects, small creatures',
+            threat: 'Low (startles easily)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.7 + Math.random() * 0.4,
+          })
+          break
+
+        case 'w': // Wolf
+          wolfCount++
+          map.creatures.push({
+            id: `wolf_${wolfCount}`,
+            type: 'creature',
+            position,
+            width: 20,
+            height: 20,
+            color: '#708090',
+            name: 'Dire Wolf',
+            description: 'Large predatory canine. Hunts in packs.',
+            behavior: 'Pack hunter, territorial',
+            diet: 'Large prey, carrion',
+            threat: 'High (aggressive when threatened)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.6 + Math.random() * 0.3,
+          })
+          break
+
+        case 'k': // Kobold
+          koboldCount++
+          map.creatures.push({
+            id: `kobold_${koboldCount}`,
+            type: 'creature',
+            position,
+            width: 16,
+            height: 16,
+            color: '#FF8C00',
+            name: 'Kobold',
+            description: 'Small reptilian humanoid. Cunning trap-makers.',
+            behavior: 'Uses traps and ambushes, avoids direct combat',
+            diet: 'Omnivorous scavenger',
+            threat: 'Medium (traps and numbers)',
+            direction: Math.random() * Math.PI * 2,
+            waypoints: generateRandomWaypoints(3),
+            speed: 0.5 + Math.random() * 0.3,
+          })
+          break
+
+        // Space character or unknown - empty walkable space
+      }
     }
   }
-  
-  // Vertical wall sections
-  const verticalWalls = [
-    { x: 300, startY: 100, endY: 350 },
-    { x: 550, startY: 250, endY: 550 },
-    { x: 800, startY: 100, endY: 350 },
-    { x: 950, startY: 300, endY: 550 },
-  ]
-  
-  for (const wall of verticalWalls) {
-    for (let y = wall.startY; y <= wall.endY; y += GRID_SIZE) {
-      map.objects.push({
-        id: `wall_v_${wall.x}_${y}`,
-        type: 'obstacle',
-        position: { x: wall.x, y },
-        width: GRID_SIZE,
-        height: GRID_SIZE,
-        color: wallColor,
-        name: 'Stone Wall',
-        description: 'Solid dungeon wall made of ancient stone.',
-      })
-    }
-  }
 
-  // Additional features (fungal patches, water pools)
-  map.objects.push(
-    {
-      id: 'fungal_patch',
-      type: 'obstacle',
-      position: { x: 450, y: 100 },
-      width: GRID_SIZE * 2,
-      height: GRID_SIZE * 2,
-      color: '#654321',
-      name: 'Fungal Growth',
-      description: 'Thick bioluminescent fungi. Best not to disturb it.',
-    },
-    {
-      id: 'water_pool',
-      type: 'obstacle',
-      position: { x: 650, y: 350 },
-      width: GRID_SIZE * 3,
-      height: GRID_SIZE * 2,
-      color: '#1a3a52',
-      name: 'Underground Pool',
-      description: 'Dark, still water. Depth unknown.',
-    }
-  )
-
-  // Create passive creatures (various types)
-  const creaturesBase = [
-    {
-      id: 'rat_1',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 150, y: 300 }),
-      width: 15,
-      height: 15,
-      color: '#8B7355',
-      name: 'Giant Rat',
-      description: 'A large rodent, the size of a cat. Nocturnal scavenger.',
-      behavior: 'Forages at night, hides during day',
-      diet: 'Organic matter, fungi',
-      threat: 'Low (unless in swarms)',
-    },
-    {
-      id: 'rat_2',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 400, y: 500 }),
-      width: 15,
-      height: 15,
-      color: '#8B7355',
-      name: 'Giant Rat',
-      description: 'A large rodent, the size of a cat. Nocturnal scavenger.',
-      behavior: 'Forages at night, hides during day',
-      diet: 'Organic matter, fungi',
-      threat: 'Low (unless in swarms)',
-    },
-    {
-      id: 'spider_1',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 500, y: 350 }),
-      width: 20,
-      height: 20,
-      color: '#2F4F4F',
-      name: 'Giant Spider',
-      description: 'Massive arachnid with glistening fangs. Territorial and aggressive.',
-      behavior: 'Hunts from webs, very territorial',
-      diet: 'Flying insects, small creatures',
-      threat: 'Medium (webbing can immobilize)',
-    },
-    {
-      id: 'blind_fish',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 650, y: 250 }),
-      width: 12,
-      height: 12,
-      color: '#E0FFFF',
-      name: 'Blind Cave Fish',
-      description: 'Pale, sightless fish with no eyes. Harmless and passive.',
-      behavior: 'Swims slowly, avoids disturbances',
-      diet: 'Small algae and organisms',
-      threat: 'None',
-    },
-    {
-      id: 'salamander_1',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 850, y: 150 }),
-      width: 14,
-      height: 14,
-      color: '#F5F5DC',
-      name: 'Blind White Salamander',
-      description: 'A translucent amphibian that burrows in damp soil.',
-      behavior: 'Solitary, mostly burrowed',
-      diet: 'Grubs and insects',
-      threat: 'None',
-    },
-    {
-      id: 'goblin_scout',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 450, y: 650 }),
-      width: 18,
-      height: 18,
-      color: '#228B22',
-      name: 'Goblin Scout',
-      description: 'A small humanoid with greenish skin. Intelligent and organized.',
-      behavior: 'Patrols territory during daylight',
-      diet: 'Omnivorous, prefers meat',
-      threat: 'Medium (organized, uses tools/traps)',
-    },
-    {
-      id: 'goblin_scout_2',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 200, y: 650 }),
-      width: 18,
-      height: 18,
-      color: '#228B22',
-      name: 'Goblin Scout',
-      description: 'A small humanoid with greenish skin. Intelligent and organized.',
-      behavior: 'Patrols territory during daylight',
-      diet: 'Omnivorous, prefers meat',
-      threat: 'Medium (organized, uses tools/traps)',
-    },
-    {
-      id: 'myconid_unit',
-      type: 'creature' as const,
-      position: snapToGrid({ x: 1050, y: 550 }),
-      width: 22,
-      height: 22,
-      color: '#9370DB',
-      name: 'Myconid (Fungal Entity)',
-      description: 'A large sentient fungal colony. Slow-moving and alien.',
-      behavior: 'Deliberate, communicates via spores',
-      diet: 'Decomposing organic matter',
-      threat: 'Medium (spores can cause effects)',
-    },
-  ]
-
-  // Add movement properties to all creatures
-  const creatures: Creature[] = creaturesBase.map((creature) => ({
-    ...creature,
-    direction: Math.random() * Math.PI * 2, // random initial direction
-    waypoints: generateRandomWaypoints(map.width, map.height, 3),
-    speed: 0.3 + Math.random() * 0.7, // random speed between 0.3 and 1.0
-  }))
-
-  map.creatures = creatures
-
-  // Create items (food, supplies) - snapped to grid
-  map.items.push(
-    {
-      id: 'item_torch',
-      type: 'item',
-      position: snapToGrid({ x: 150, y: 150 }),
-      width: 12,
-      height: 12,
-      color: '#FF8C00',
-      name: 'Torch',
-      description: 'A lit torch. Provides light in dark areas.',
-    },
-    {
-      id: 'item_ration',
-      type: 'item',
-      position: snapToGrid({ x: 150, y: 500 }),
-      width: 10,
-      height: 10,
-      color: '#D2691E',
-      name: 'Food Ration',
-      description: 'Dried meat and bread. Can sustain the party.',
-    },
-    {
-      id: 'item_rope',
-      type: 'item',
-      position: snapToGrid({ x: 1100, y: 650 }),
-      width: 8,
-      height: 8,
-      color: '#DAA520',
-      name: 'Coil of Rope',
-      description: 'Strong rope for climbing or other tasks.',
-    }
-  )
-
-  return map
+  return { map, partyStartPosition }
 }

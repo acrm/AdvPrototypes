@@ -7,20 +7,23 @@ import { InfoPanel } from './InfoPanel'
 import './DungeonGame.css'
 
 export const DungeonGame: React.FC = () => {
-  const [gameState, setGameState] = useState<GameState>(() => ({
-    map: initializeMap(),
-    party: {
-      position: snapToGrid({ x: 100, y: 100 }),
-      members: ['Warrior', 'Rogue', 'Cleric'],
-      path: [],
-      targetPosition: null,
-      observedCreatures: new Map(),
-      direction: -Math.PI / 2, // pointing up initially
-    },
-    selectedObject: null,
-    gameTime: 0,
-    isMoving: false,
-  }))
+  const [gameState, setGameState] = useState<GameState>(() => {
+    const { map, partyStartPosition } = initializeMap()
+    return {
+      map,
+      party: {
+        position: partyStartPosition,
+        members: ['Warrior', 'Rogue', 'Cleric'],
+        path: [],
+        targetPosition: null,
+        observedCreatures: new Map(),
+        direction: -Math.PI / 2, // pointing up initially
+      },
+      selectedObject: null,
+      gameTime: 0,
+      isMoving: false,
+    }
+  })
 
   // Update party position along path
   useEffect(() => {
