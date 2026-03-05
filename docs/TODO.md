@@ -3,23 +3,23 @@
 ## Phase 1: Core Loop MVP (Prototype)
 
 ### Foundation
-- [ ] Set game window title to "Dungeon Ecosystem"
-- [ ] Dungeon map structure (basic multi-room layout)
-- [ ] Party character & representation
+- [x] Set game window title to "Dungeon Ecosystem"
+- [x] Dungeon map structure (basic multi-room layout)
+- [x] Party character & representation
 - [ ] Camera/viewport system
-- [ ] Mouse click input system (movement, object interaction)
+- [x] Mouse click input system (movement, object interaction)
 
 ### Creature AI System
-- [ ] Creature entity framework with sleep/wake cycles
-- [ ] 240-second game cycle with time progression
-- [ ] Sleep schedule system (sleepStart, sleepEnd, variation)
-- [ ] Three creature states: sleeping, idle, patrol
-- [ ] Visual state feedback (immobile vs rotating vs moving)
+- [x] Creature entity framework with sleep/wake cycles
+- [x] 240-second game cycle with time progression
+- [x] Sleep schedule system (sleepStart, sleepEnd, variation)
+- [x] Three creature states: sleeping, idle, patrol
+- [x] Visual state feedback (immobile vs rotating vs moving)
 - [ ] Deterministic waypoint generation for patrol routes
-- [ ] State transitions based on cycle time
+- [x] State transitions based on cycle time
 
 ### Food & Feeding System
-- [ ] Food item type: fungi, organic_matter, meat, insects
+- [x] Food item type: fungi, organic_matter, meat, insects
 - [ ] Spawn zones (semi-transparent, respawning food)
 - [ ] Creatures pick up and carry food
 - [ ] Creatures move to feeding locations (species-specific behavior)
@@ -28,11 +28,11 @@
 - [ ] Visual rendering of carried food at creature's forward vertex
 
 ### Player Interaction System
-- [ ] Object click detection and context menu
-- [ ] "Pick Up" action for food items
-- [ ] "Drop" action for carrying items
-- [ ] Party inventory (can hold one item at a time)
-- [ ] Visual feedback for held items (display at party direction)
+- [x] Object click detection and interaction
+- [x] "Pick Up" action for items
+- [x] "Drop" action for carrying items
+- [x] Party inventory (can hold one item at a time)
+- [x] Visual feedback for held items (display at party direction)
 - [ ] Examine action for spawn zones and obstacles
 
 ### Creature Species (MVP)
@@ -141,7 +141,7 @@
 - Food interaction system should support future mechanics (poisoning, disease)
 - Save/load progress for longer playtests
 - Performance optimization for many simultaneous creatures
-- Path collision avoidance (creatures walking through walls)
+- Deterministic waypoint generation (seed-based)
 
 ## Testing Priorities
 1. **Learnability:** Can player intuitively discover creature sleep patterns?

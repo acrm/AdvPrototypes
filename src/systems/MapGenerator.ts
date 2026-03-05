@@ -40,16 +40,13 @@ function isSleeping(schedule: SleepSchedule, cycleTime: number): boolean {
   }
 }
 
-// Helper to generate random waypoints for creature movement
-function generateRandomWaypoints(count: number = 3) {
-  const waypoints = []
-  for (let i = 0; i < count; i++) {
-    // Generate waypoints on grid centers
-    const gridX = Math.floor(Math.random() * (GRID_COLS - 2)) + 1
-    const gridY = Math.floor(Math.random() * (GRID_ROWS - 2)) + 1
-    waypoints.push(gridToWorld(gridX, gridY))
+// Helper to create idle turn timing values (1-2 seconds between turns)
+function createIdleTurnTiming(startGameTime: number = 0): { idleTurnInterval: number; nextIdleTurnAt: number } {
+  const idleTurnInterval = 1 + Math.random()
+  return {
+    idleTurnInterval,
+    nextIdleTurnAt: startGameTime + idleTurnInterval,
   }
-  return waypoints
 }
 
 export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
@@ -148,10 +145,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Organic matter, fungi',
             threat: 'Low (unless in swarms)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.4 + Math.random() * 0.3,
             state: isSleeping(ratSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: ratSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['fungi', 'organic_matter'],
           })
@@ -173,10 +171,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Flying insects, small creatures',
             threat: 'Medium (webbing can immobilize)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.3 + Math.random() * 0.3,
             state: isSleeping(spiderSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: spiderSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['insects', 'meat'],
           })
@@ -198,10 +197,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Omnivorous, prefers meat',
             threat: 'Medium (organized, uses tools/traps)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.5 + Math.random() * 0.3,
             state: isSleeping(goblinSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: goblinSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['meat', 'organic_matter'],
           })
@@ -223,10 +223,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Decomposing organic matter',
             threat: 'Medium (spores can cause effects)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.2 + Math.random() * 0.2,
             state: isSleeping(myconidSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: myconidSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['organic_matter', 'fungi'],
           })
@@ -248,10 +249,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Small rodents, insects',
             threat: 'Low (avoids humanoids)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.6 + Math.random() * 0.3,
             state: isSleeping(owlSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: owlSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['meat', 'insects'],
           })
@@ -273,10 +275,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Insects, small creatures',
             threat: 'Low (startles easily)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.7 + Math.random() * 0.4,
             state: isSleeping(batSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: batSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['insects'],
           })
@@ -298,10 +301,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Large prey, carrion',
             threat: 'High (aggressive when threatened)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.6 + Math.random() * 0.3,
             state: isSleeping(wolfSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: wolfSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['meat'],
           })
@@ -323,10 +327,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             diet: 'Omnivorous scavenger',
             threat: 'Medium (traps and numbers)',
             direction: Math.random() * Math.PI * 2,
-            waypoints: generateRandomWaypoints(3),
+            waypoints: [], // Will be generated dynamically with proper pathfinding
             speed: 0.5 + Math.random() * 0.3,
             state: isSleeping(koboldSchedule, 120) ? 'sleeping' : 'idle',
             sleepSchedule: koboldSchedule,
+            ...createIdleTurnTiming(0),
             carriedFood: null,
             preferredFoodTypes: ['meat', 'organic_matter', 'insects'],
           })

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { GameState, Vector2, GameObject } from '../types/game'
+import { GameState, Vector2, GameObject, Item } from '../types/game'
 import { initializeMap, isSleeping } from '../systems/MapGenerator'
-import { findPathWithObstacles, snapToGrid } from '../systems/Pathfinding'
+import { findPathWithObstacles, getRandomWalkablePosition, isPositionWalkable } from '../systems/Pathfinding'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
 import './DungeonGame.css'
@@ -27,15 +27,59 @@ export const DungeonGame: React.FC = () => {
     }
   })
 
+  const PICKUP_RADIUS = 30
+
+  const distanceBetween = (a: Vector2, b: Vector2): number => {
+    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2))
+  }
+
+  const findNearbyItem = (items: Item[], position: Vector2, radius: number): Item | null => {
+    const nearby = items.find((item) => distanceBetween(item.position, position) <= radius)
+    return nearby || null
+  }
+
+  const dropCarriedItemAtPosition = (state: GameState, dropPosition: Vector2): GameState => {
+    if (!state.party.carriedItem) {
+      return state
+    }
+
+    if (!isPositionWalkable(dropPosition, state.map.objects)) {
+      return state
+    }
+
+    const droppedItem: Item = {
+      ...state.party.carriedItem,
+      type: 'item',
+      position: dropPosition,
+    }
+
+    return {
+      ...state,
+      map: {
+        ...state.map,
+        items: [...state.map.items, droppedItem],
+      },
+      party: {
+        ...state.party,
+        carriedItem: null,
+      },
+      selectedObject: droppedItem,
+    }
+  }
+
   // Update party position along path
   useEffect(() => {
-    if (!gameState.isMoving || gameState.party.path.length === 0) return
+    if (!gameState.isMoving) return
 
     const interval = setInterval(() => {
       setGameState((prev) => {
         const path = [...prev.party.path]
         if (path.length === 0) {
-          return { ...prev, isMoving: false }
+          return {
+            ...prev,
+            party: { ...prev.party, targetPosition: null },
+            isMoving: false,
+          }
         }
 
         const nextPos = path[0]
@@ -50,10 +94,33 @@ export const DungeonGame: React.FC = () => {
           // Reached waypoint, remove it
           path.shift()
           if (path.length === 0) {
-            // Reached target
+            // Reached target: stop, clear target, and auto-pick nearby item if possible
+            let updatedMap = prev.map
+            let carriedItem = prev.party.carriedItem
+
+            if (!carriedItem) {
+              const targetPosition = prev.party.targetPosition ?? nextPos
+              const nearbyItem = findNearbyItem(prev.map.items, targetPosition, PICKUP_RADIUS)
+
+              if (nearbyItem) {
+                updatedMap = {
+                  ...prev.map,
+                  items: prev.map.items.filter((item) => item.id !== nearbyItem.id),
+                }
+                carriedItem = nearbyItem
+              }
+            }
+
             return {
               ...prev,
-              party: { ...prev.party, path: [] },
+              map: updatedMap,
+              party: {
+                ...prev.party,
+                position: nextPos,
+                path: [],
+                targetPosition: null,
+                carriedItem,
+              },
               isMoving: false,
               gameTime: prev.gameTime + 0.001,
             }
@@ -69,7 +136,12 @@ export const DungeonGame: React.FC = () => {
 
         return {
           ...prev,
-          party: { ...prev.party, position: newPos, path, direction: angle },
+          party: {
+            ...prev.party,
+            position: newPos,
+            path,
+            direction: angle,
+          },
           gameTime: prev.gameTime + 0.001,
         }
       })
@@ -88,8 +160,8 @@ export const DungeonGame: React.FC = () => {
         const updatedCreatures = prev.map.creatures.map((creature) => {
           // Update creature state based on sleep schedule
           const shouldSleep = isSleeping(creature.sleepSchedule, newCycleTime)
-          const newState: 'sleeping' | 'idle' | 'patrol' = shouldSleep 
-            ? 'sleeping' 
+          const newState: 'sleeping' | 'idle' | 'patrol' = shouldSleep
+            ? 'sleeping'
             : (creature.waypoints.length > 0 ? 'patrol' : 'idle')
 
           // Sleeping creatures don't move
@@ -103,10 +175,32 @@ export const DungeonGame: React.FC = () => {
 
           // If no waypoints, generate new ones using pathfinding
           if (creature.waypoints.length === 0) {
-            const randomTarget = snapToGrid({
-              x: Math.random() * (prev.map.width - 200) + 100,
-              y: Math.random() * (prev.map.height - 200) + 100,
-            })
+            // Idle behavior: rotate every 1-2 seconds
+            if (prev.gameTime >= creature.nextIdleTurnAt) {
+              const nextInterval = 1 + Math.random()
+              return {
+                ...creature,
+                state: 'idle' as const,
+                direction: Math.random() * Math.PI * 2,
+                idleTurnInterval: nextInterval,
+                nextIdleTurnAt: prev.gameTime + nextInterval,
+              }
+            }
+
+            // Occasionally begin patrol route
+            if (Math.random() > 0.01) {
+              return {
+                ...creature,
+                state: 'idle' as const,
+              }
+            }
+
+            // Generate a random walkable target position
+            const randomTarget = getRandomWalkablePosition(
+              prev.map.objects,
+              prev.map.width,
+              prev.map.height
+            )
             const newPath = findPathWithObstacles(
               creature.position,
               randomTarget,
@@ -114,6 +208,7 @@ export const DungeonGame: React.FC = () => {
               prev.map.width,
               prev.map.height
             )
+
             return {
               ...creature,
               state: (newPath.length > 0 ? 'patrol' : 'idle') as 'patrol' | 'idle',
@@ -149,6 +244,15 @@ export const DungeonGame: React.FC = () => {
           // Keep within map bounds
           newPos.x = Math.max(30, Math.min(prev.map.width - 30, newPos.x))
           newPos.y = Math.max(30, Math.min(prev.map.height - 30, newPos.y))
+
+          // Safety guard: never enter wall cells
+          if (!isPositionWalkable(newPos, prev.map.objects)) {
+            return {
+              ...creature,
+              state: 'idle' as const,
+              waypoints: [],
+            }
+          }
 
           return {
             ...creature,
@@ -192,7 +296,49 @@ export const DungeonGame: React.FC = () => {
       }
       for (const item of prev.map.items) {
         if (isPointInRect(clickPos, item)) {
-          return { ...prev, selectedObject: item }
+          // Pick up if close enough and inventory is empty
+          if (!prev.party.carriedItem && distanceBetween(prev.party.position, item.position) <= PICKUP_RADIUS) {
+            return {
+              ...prev,
+              map: {
+                ...prev.map,
+                items: prev.map.items.filter((existingItem) => existingItem.id !== item.id),
+              },
+              party: {
+                ...prev.party,
+                carriedItem: item,
+              },
+              selectedObject: null,
+            }
+          }
+
+          // Move toward item for pickup if it is not nearby
+          const itemPath = findPathWithObstacles(
+            prev.party.position,
+            item.position,
+            prev.map.objects,
+            prev.map.width,
+            prev.map.height
+          )
+
+          if (itemPath.length === 0) {
+            return {
+              ...prev,
+              isMoving: false,
+              selectedObject: item,
+            }
+          }
+
+          return {
+            ...prev,
+            party: {
+              ...prev.party,
+              path: itemPath,
+              targetPosition: item.position,
+            },
+            isMoving: true,
+            selectedObject: item,
+          }
         }
       }
       if (isPointInRect(clickPos, prev.map.artifact)) {
@@ -201,13 +347,24 @@ export const DungeonGame: React.FC = () => {
 
       // Check if click is on party
       if (
-        Math.sqrt(
-          Math.pow(clickPos.x - prev.party.position.x, 2) +
-          Math.pow(clickPos.y - prev.party.position.y, 2)
-        ) < 30
+        distanceBetween(clickPos, prev.party.position) < 30
       ) {
-        // Show party info (selectedObject = "party" as a special marker)
+        // Drop carried item at party position
+        if (prev.party.carriedItem) {
+          return dropCarriedItemAtPosition(prev, prev.party.position)
+        }
+
+        // Show party info
         return { ...prev, selectedObject: null }
+      }
+
+      // Drop carried item to nearby clicked ground
+      if (
+        prev.party.carriedItem &&
+        distanceBetween(clickPos, prev.party.position) <= PICKUP_RADIUS &&
+        isPositionWalkable(clickPos, prev.map.objects)
+      ) {
+        return dropCarriedItemAtPosition(prev, clickPos)
       }
 
       // Otherwise, move party to clicked position
@@ -218,6 +375,20 @@ export const DungeonGame: React.FC = () => {
         prev.map.width,
         prev.map.height
       )
+
+      if (path.length === 0) {
+        return {
+          ...prev,
+          party: {
+            ...prev.party,
+            path: [],
+            targetPosition: null,
+          },
+          isMoving: false,
+          selectedObject: null,
+        }
+      }
+
       return {
         ...prev,
         party: {

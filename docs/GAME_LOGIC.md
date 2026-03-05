@@ -92,13 +92,13 @@
 **Creature States:**
 1. **SLEEPING** - Completely motionless, unaware of surroundings
    - Safe to pass nearby
-   - Identified by: zero movement, frozen in place
+   - Identified by: zero movement and no rotation (same visual shape)
    - Cannot react to player actions
 
-2. **IDLE** - Awake but stationary, constantly rotating/looking around
+2. **IDLE** - Awake but stationary, rotates to a random direction every 1-2 seconds
    - Aware but not actively hunting
    - May notice player if very close
-   - Identified by: static position, continuous rotation
+   - Identified by: static position, periodic direction changes
 
 3. **PATROL** - Actively moving along waypoints, fully alert
    - Most dangerous state
@@ -157,21 +157,20 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 
 ### Player Interaction with Objects
 
-**Item Interaction System:**
-- Click on any object → context menu appears
-- **Food item on ground:** 
-  - `[Pick Up]` - Add to party inventory (can hold one item)
-  - `[Leave]` - Ignore
-- **Item in party possession:**
-  - `[Drop]` - Place at current location
-  - `[Examine]` - View details
-- **Spawn zone / Obstacle:**
-  - `[Examine]` - Learn about it
+**Item Interaction System (Current Prototype):**
+- Click on any object → object is selected in the info panel
+- **Ground item click:**
+   - If close enough, party picks it up immediately
+   - If far, party moves to the item and picks it up on arrival
+- **Drop carried item:**
+   - Click party to drop item at party position
+   - Click nearby ground to drop item at clicked location
+- **Obstacle click:** shows object details (no movement through walls)
 
 **Party Inventory:**
 - Party can carry ONE item at a time
 - Carrying item displays visually at party's forward-facing direction
-- Can drop item to free up space or strategically place it
+- Can drop item at current or nearby location to free space or reposition resources
 
 **Strategic Uses:**
 - Drop food to lure creatures away from your path

@@ -63,27 +63,10 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     ctx.arc(artifact.position.x, artifact.position.y, artifact.width / 2, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw creatures (triangles for awake, circles for sleeping)
+    // Draw creatures (triangles)
     for (const creature of gameState.map.creatures) {
-      if (creature.state === 'sleeping') {
-        // Draw sleeping creature as a circle with "Zzz"
-        ctx.fillStyle = creature.color
-        ctx.globalAlpha = 0.6 // Semi-transparent
-        ctx.beginPath()
-        ctx.arc(creature.position.x, creature.position.y, 12, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.globalAlpha = 1.0
-        
-        // Add "Z" symbol
-        ctx.fillStyle = '#fff'
-        ctx.font = '12px monospace'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText('Z', creature.position.x, creature.position.y - 18)
-      } else {
-        // Draw awake creature as triangle
-        drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
-      }
+      // All creatures drawn as triangles (sleeping just don't rotate/move)
+      drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
     }
 
     // Draw party path (dashed line)
@@ -119,6 +102,20 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
 
     // Draw party (white triangle)
     drawTriangle(ctx, gameState.party.position, '#fff', 20, gameState.party.direction)
+
+    // Draw carried item near party direction
+    if (gameState.party.carriedItem) {
+      const carryDistance = 16
+      const carryPosition = {
+        x: gameState.party.position.x + Math.cos(gameState.party.direction) * carryDistance,
+        y: gameState.party.position.y + Math.sin(gameState.party.direction) * carryDistance,
+      }
+
+      ctx.fillStyle = gameState.party.carriedItem.color
+      ctx.beginPath()
+      ctx.arc(carryPosition.x, carryPosition.y, 5, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }, [gameState])
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {

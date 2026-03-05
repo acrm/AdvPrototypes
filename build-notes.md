@@ -10,3 +10,7 @@
 - 2026w10-4.1 — ASCII map loader with grid-aligned objects and creatures
 - 2026w10-4.2 — Fixed wall center positioning and dungeon layout row count
 - 2026w10-5.1 — Implement sleep/wake cycle system with creature states
+- 2026w10-5.2 — Fix creature wall collisions and add item carry mechanics
+- 2026w10-6.1 — Fix creature wall collisions and add item carry mechanics
+- 2026w10-6.2 — Refine retro monospace info panel styling
+- 2026w10-7.1 — Refine retro monospace info panel styling

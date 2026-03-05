@@ -22,7 +22,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ selectedObject, party, cyc
     info += `**Time:** ${getTimeOfDay(cycleTime)} (${Math.floor(cycleTime)}s)\n\n`
     info += `**Members:** ${party.members.join(', ')}\n\n`
     info += `**Position:** (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
+    info += `**Carrying:** ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
     info += `**Observed Creatures:** ${party.observedCreatures.size}\n\n`
+    info += `**Controls:** Click item to pick up. Click party to drop.\n\n`
     info += `**Progress:** Searching for artifact...`
     return info
   }

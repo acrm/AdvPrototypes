@@ -43,6 +43,15 @@ Output goes to `dist/` folder.
 - **Observation:** Learn what each creature wants, fears, and hunts
 - **Avoidance:** Use stealth, environmental knowledge, and creature relationships to bypass threats
 - **Day/Night Cycles:** Creature activity changes based on time; use this to your advantage
+- **Item Transport:** Pick up one item at a time, carry it through the map, and drop it strategically
+
+## Current Controls
+
+- **Left click on ground:** Move party (if path is reachable)
+- **Left click on creature/object:** Select and inspect in info panel
+- **Left click on item:** Move to item and pick it up (or pick instantly if close)
+- **Left click near party while carrying:** Drop carried item
+- **Left click on party while carrying:** Drop carried item at party position
 
 **Creatures (D&D Bestiary):**
 - **Giant Rats** - Nocturnal scavengers, fear light, swarm in numbers

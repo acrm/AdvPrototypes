@@ -38,6 +38,8 @@ export interface Creature extends GameObject {
   speed: number // movement speed
   state: CreatureState // current state
   sleepSchedule: SleepSchedule // sleep/wake pattern
+  idleTurnInterval: number // seconds between idle turns (1-2s)
+  nextIdleTurnAt: number // absolute game time when next idle turn happens
   carriedFood: Food | null // food being carried
   preferredFoodTypes: FoodType[] // what food this creature eats
 }

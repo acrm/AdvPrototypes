@@ -37,6 +37,98 @@ interface GridNode {
   walkable: boolean
 }
 
+// Build a walkable grid for the entire map
+export function buildWalkableGrid(
+  obstacles: GameObject[],
+  mapWidth: number,
+  mapHeight: number
+): boolean[][] {
+  const gridWidth = Math.ceil(mapWidth / GRID_SIZE)
+  const gridHeight = Math.ceil(mapHeight / GRID_SIZE)
+  
+  // Initialize all cells as walkable
+  const walkable: boolean[][] = []
+  for (let y = 0; y < gridHeight; y++) {
+    walkable[y] = []
+    for (let x = 0; x < gridWidth; x++) {
+      walkable[y][x] = true
+    }
+  }
+  
+  // Mark obstacle cells as unwalkable
+  for (const obstacle of obstacles) {
+    const minX = Math.floor((obstacle.position.x - obstacle.width / 2) / GRID_SIZE)
+    const maxX = Math.ceil((obstacle.position.x + obstacle.width / 2) / GRID_SIZE)
+    const minY = Math.floor((obstacle.position.y - obstacle.height / 2) / GRID_SIZE)
+    const maxY = Math.ceil((obstacle.position.y + obstacle.height / 2) / GRID_SIZE)
+
+    for (let y = Math.max(0, minY); y < Math.min(gridHeight, maxY); y++) {
+      for (let x = Math.max(0, minX); x < Math.min(gridWidth, maxX); x++) {
+        walkable[y][x] = false
+      }
+    }
+  }
+  
+  return walkable
+}
+
+// Check if a position is walkable
+export function isPositionWalkable(
+  position: Vector2,
+  obstacles: GameObject[]
+): boolean {
+  const gridX = Math.floor(position.x / GRID_SIZE)
+  const gridY = Math.floor(position.y / GRID_SIZE)
+  
+  for (const obstacle of obstacles) {
+    const minX = Math.floor((obstacle.position.x - obstacle.width / 2) / GRID_SIZE)
+    const maxX = Math.ceil((obstacle.position.x + obstacle.width / 2) / GRID_SIZE)
+    const minY = Math.floor((obstacle.position.y - obstacle.height / 2) / GRID_SIZE)
+    const maxY = Math.ceil((obstacle.position.y + obstacle.height / 2) / GRID_SIZE)
+    
+    if (gridX >= minX && gridX < maxX && gridY >= minY && gridY < maxY) {
+      return false
+    }
+  }
+  
+  return true
+}
+
+// Get a random walkable position on the map
+export function getRandomWalkablePosition(
+  obstacles: GameObject[],
+  mapWidth: number,
+  mapHeight: number
+): Vector2 {
+  const walkableGrid = buildWalkableGrid(obstacles, mapWidth, mapHeight)
+  const gridWidth = walkableGrid[0].length
+  const gridHeight = walkableGrid.length
+  
+  // Collect all walkable cells
+  const walkableCells: { x: number; y: number }[] = []
+  for (let y = 0; y < gridHeight; y++) {
+    for (let x = 0; x < gridWidth; x++) {
+      if (walkableGrid[y][x]) {
+        walkableCells.push({ x, y })
+      }
+    }
+  }
+  
+  // Pick a random walkable cell
+  if (walkableCells.length === 0) {
+    // Fallback if no walkable cells (shouldn't happen)
+    return { x: GRID_SIZE / 2, y: GRID_SIZE / 2 }
+  }
+  
+  const randomCell = walkableCells[Math.floor(Math.random() * walkableCells.length)]
+  
+  // Return center of cell
+  return {
+    x: randomCell.x * GRID_SIZE + GRID_SIZE / 2,
+    y: randomCell.y * GRID_SIZE + GRID_SIZE / 2,
+  }
+}
+
 export function findPathWithObstacles(
   start: Vector2,
   goal: Vector2,
@@ -82,9 +174,9 @@ export function findPathWithObstacles(
   const startNode = grid[Math.floor(start.y / GRID_SIZE)][Math.floor(start.x / GRID_SIZE)]
   const goalNode = grid[Math.floor(goal.y / GRID_SIZE)][Math.floor(goal.x / GRID_SIZE)]
 
-  // If start or goal is unwalkable, return direct path
+  // If start or goal is unwalkable, return empty path (no path possible)
   if (!startNode.walkable || !goalNode.walkable) {
-    return [goal]
+    return []
   }
 
   // A* algorithm
@@ -141,8 +233,8 @@ export function findPathWithObstacles(
     }
   }
 
-  // No path found, return direct path
-  return [goal]
+  // No path found, return empty path
+  return []
 }
 
 function heuristic(a: GridNode, b: GridNode): number {
@@ -175,9 +267,20 @@ function getNeighbors(
     const nx = x + dir.dx
     const ny = y + dir.dy
 
-    if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
-      neighbors.push(grid[ny][nx])
+    if (nx < 0 || nx >= gridWidth || ny < 0 || ny >= gridHeight) {
+      continue
     }
+
+    // Prevent diagonal movement through blocked corners
+    if (dir.dx !== 0 && dir.dy !== 0) {
+      const horizontalNeighbor = grid[y][x + dir.dx]
+      const verticalNeighbor = grid[y + dir.dy][x]
+      if (!horizontalNeighbor.walkable || !verticalNeighbor.walkable) {
+        continue
+      }
+    }
+
+    neighbors.push(grid[ny][nx])
   }
 
   return neighbors
