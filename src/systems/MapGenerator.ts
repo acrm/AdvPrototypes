@@ -383,9 +383,8 @@ function createSpawnZoneBase(
 }
 
 function getItemTemplateForIndex(index: number): ItemTemplate {
-  if (index === 1) return 'torch'
-  if (index === 2) return 'food_ration'
-  return 'treasure'
+  const rotation = GAME_SETTINGS.spawn.itemTemplateRotation
+  return rotation[(index - 1) % rotation.length]
 }
 
 function getCreatureSpeciesFromSymbol(symbol: string): CreatureSpecies | null {
@@ -424,7 +423,10 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
     artifact: {
       id: 'artifact_placeholder',
       type: 'artifact',
-      position: { x: -9999, y: -9999 },
+      position: {
+        x: GAME_SETTINGS.world.hiddenArtifactPosition.x,
+        y: GAME_SETTINGS.world.hiddenArtifactPosition.y,
+      },
       width: 20,
       height: 20,
       color: '#FFD700',
@@ -434,7 +436,10 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
     },
   }
 
-  let partyStartPosition: Vector2 = layoutToWorld(2, 2)
+  let partyStartPosition: Vector2 = layoutToWorld(
+    GAME_SETTINGS.world.partyStartLayoutCell.x,
+    GAME_SETTINGS.world.partyStartLayoutCell.y
+  )
   const wallColor = '#4A3F35'
   const lines = DUNGEON_LAYOUT.split('\n').filter((line) => line.length > 0)
 

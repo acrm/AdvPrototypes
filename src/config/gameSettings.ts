@@ -1,4 +1,4 @@
-import { CreatureSpecies } from '../types/game'
+import { CreatureSpecies, ItemTemplate } from '../types/game'
 
 type RangeTuple = [number, number]
 
@@ -8,6 +8,14 @@ export const GAME_SETTINGS = {
     layoutRegionScale: 3,
     viewportWidth: 1200,
     viewportHeight: 800,
+    partyStartLayoutCell: {
+      x: 2,
+      y: 2,
+    },
+    hiddenArtifactPosition: {
+      x: -9999,
+      y: -9999,
+    },
   },
   cycle: {
     durationSeconds: 240,
@@ -53,5 +61,8 @@ export const GAME_SETTINGS = {
         variationRange: [5, 15] as RangeTuple,
       },
     },
+  },
+  spawn: {
+    itemTemplateRotation: ['torch', 'food_ration', 'treasure'] as ItemTemplate[],
   },
 } as const

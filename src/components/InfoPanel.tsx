@@ -1,6 +1,9 @@
 import React from 'react'
 import { GameObject, Party, Creature } from '../types/game'
+import { GAME_SETTINGS } from '../config/gameSettings'
 import './InfoPanel.css'
+
+const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
 
 interface InfoPanelProps {
   selectedObject: GameObject | null
@@ -22,10 +25,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   onDropCarried,
 }) => {
   const getTimeOfDay = (cycle: number): string => {
-    // 0-60: Night, 60-120: Morning, 120-180: Day, 180-240: Evening
-    if (cycle < 60) return '🌙 Night'
-    if (cycle < 120) return '🌅 Morning'
-    if (cycle < 180) return '☀️ Day'
+    const phaseDuration = CYCLE_DURATION_SECONDS / 4
+    if (cycle < phaseDuration) return '🌙 Night'
+    if (cycle < phaseDuration * 2) return '🌅 Morning'
+    if (cycle < phaseDuration * 3) return '☀️ Day'
     return '🌆 Evening'
   }
 
