@@ -2,6 +2,8 @@
 import { Vector2, GameObject } from '../types/game'
 
 export const GRID_SIZE = 50 // Grid cell size in pixels
+export const LAYOUT_REGION_SCALE = 3
+export const LAYOUT_REGION_SIZE = GRID_SIZE * LAYOUT_REGION_SCALE
 
 // Helper to snap position to grid center
 export function snapToGrid(pos: Vector2): Vector2 {

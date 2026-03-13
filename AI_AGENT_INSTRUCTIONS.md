@@ -13,11 +13,12 @@ Version format: `<weekCode>-<minor>.<build>`
 
 ### Mandatory Version Bump After Any Tracked File Change
 
-After modifying ANY tracked file (except docs, README updates):
-1. Run: `npm run bump:build -- --desc "Short English summary"`
-2. Verify version in `version.json` and `package.json`
-3. Run: `npm run typecheck` or `npm run build` to validate
-4. Commit with format: `<version>: <description>`
+After modifying any tracked file:
+1. Run exactly one bump command:
+	- `npm run bump:build -- --desc "Short English summary"`
+	- `npm run bump:minor -- --desc "Short English summary"`
+2. The bump script must sync `version.json` and `package.json`, append `build-notes.md`, run `npm run build`, and create the git commit automatically.
+3. Do not create a second manual commit after a successful bump.
 
 ### Commands Reference
 
@@ -41,10 +42,9 @@ Keep docs in English, concise, and factual.
 ## Git Workflow
 
 1. Make code changes
-2. Bump version: `npm run bump:build -- --desc "..."`
-3. Verify: `npm run typecheck && npm run build`
-4. Commit: `<version>: <description>`
-5. Push to GitHub
+2. Update docs if behavior, UI, parameters, or flow changed
+3. Run one bump command
+4. Push the commit created by the bump script to GitHub
 
 ## File Locations to Know
 

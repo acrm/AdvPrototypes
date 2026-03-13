@@ -11,6 +11,12 @@ export type CreatureState = 'sleeping' | 'idle' | 'patrol'
 
 export type FoodType = 'fungi' | 'organic_matter' | 'meat' | 'insects'
 
+export type CreatureSpecies = 'rat' | 'spider' | 'goblin' | 'myconid' | 'owl' | 'bat' | 'wolf' | 'kobold'
+
+export type ItemTemplate = 'torch' | 'food_ration' | 'treasure'
+
+export type SpawnKind = 'creature' | 'item' | 'artifact'
+
 export interface GameObject {
   id: string
   type: ObjectType
@@ -20,6 +26,7 @@ export interface GameObject {
   color: string
   name: string
   description: string
+  sourceSpawnZoneId?: string | null
 }
 
 export interface SleepSchedule {
@@ -52,11 +59,14 @@ export interface Food extends GameObject {
 
 export interface SpawnZone extends GameObject {
   type: 'spawn_zone'
-  foodType: FoodType
-  spawnInterval: number // seconds between spawns
-  lastSpawnTime: number // when last food spawned
-  maxFood: number // max simultaneous food items
-  currentFood: number // current food count
+  spawnKind: SpawnKind
+  sourceSymbol: string
+  creatureSpecies?: CreatureSpecies
+  itemTemplate?: ItemTemplate
+  respawnCooldown: number // seconds before zone spawns a replacement
+  respawnStartedAt: number | null // when the current missing-state cooldown started
+  activeEntityId: string | null // currently spawned entity linked to this zone
+  spawnCount: number // monotonically increasing counter for unique respawn ids
 }
 
 export interface Obstacle extends GameObject {
@@ -84,6 +94,7 @@ export interface Party {
 export interface GameMap {
   width: number
   height: number
+  layoutCellSize: number
   objects: GameObject[]
   creatures: Creature[]
   items: Item[]

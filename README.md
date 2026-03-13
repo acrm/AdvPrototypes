@@ -44,6 +44,8 @@ Output goes to `dist/` folder.
 - **Avoidance:** Use stealth, environmental knowledge, and creature relationships to bypass threats
 - **Day/Night Cycles:** Creature activity changes based on time; use this to your advantage
 - **Item Transport:** Pick up one item at a time, carry it through the map, and drop it strategically
+- **Large Spawn Regions:** Each layout symbol now defines a 150x150 dungeon region where creatures, items, and the artifact can reappear after a cooldown
+- **Follow Camera:** The visible play area stays fixed while the camera remains centered on the party
 
 ## Current Controls
 
@@ -53,6 +55,7 @@ Output goes to `dist/` folder.
 - **Left click near party while carrying:** Drop carried item
 - **Left click on party while carrying:** Drop carried item at party position
 - **Info panel buttons:** `[PICK UP]` for selected item, `[DROP]` for carried item
+- **Camera:** The viewport follows the party, so the dungeon scrolls around them
 
 **Creatures (D&D Bestiary):**
 - **Giant Rats** - Nocturnal scavengers, fear light, swarm in numbers
@@ -98,11 +101,13 @@ This project uses semantic versioning tied to ISO week:
 - Format: `<weekCode>-<minor>.<build>`
 - Example: `2026w10-0.1`
 
-Version bumps after every code change:
+Run one bump command after every tracked change:
 ```bash
 npm run bump:build -- --desc "Your change description"
 npm run bump:minor -- --desc "For breaking changes"
 ```
+
+The bump script synchronizes `version.json` and `package.json`, appends `build-notes.md`, runs `npm run build`, and creates the git commit automatically.
 
 ## Prototype Philosophy
 
@@ -121,9 +126,8 @@ MIT License - feel free to use and modify!
 ## Contributing
 
 1. Make your changes
-2. Bump version: `npm run bump:build -- --desc "..."`
-3. Validate: `npm run typecheck && npm run build`
-4. Commit: `<version>: <description>`
-5. Push and create PR
+2. Update docs if behavior or workflow changed
+3. Run a bump command: `npm run bump:build -- --desc "..."`
+4. Push the commit created by the bump script and create a PR
 
 See [AI_AGENT_INSTRUCTIONS.md](./AI_AGENT_INSTRUCTIONS.md) for AI agent workflow guidelines.

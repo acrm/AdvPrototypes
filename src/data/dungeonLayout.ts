@@ -1,19 +1,19 @@
-// DUNGEON LAYOUT MAP - 24x16 cells (1200x800 pixels, 50px per cell)
+// DUNGEON LAYOUT MAP - 24x16 large regions (3600x2400 world, 150px per symbol)
 // 
 // LEGEND:
-// # - Wall (impassable obstacle, grey rectangle aligned to grid)
-// P - Party starting position (white triangle, center of cell)
-// r - Rat (brown triangle)
-// s - Spider (dark grey triangle)
-// g - Goblin (green triangle)
-// m - Myconid (purple triangle)
-// o - Owl (light grey triangle)
-// b - Bat (dark triangle)
-// w - Wolf (grey triangle)
-// k - Kobold (orange triangle)
-// * - Artifact (golden circle)
-// . - Item (small circle - food/treasure)
-//   - Empty walkable space
+// # - Wall region (impassable 150x150 block)
+// P - Party start region (entity keeps original size inside the region)
+// r - Rat spawn region
+// s - Spider spawn region
+// g - Goblin spawn region
+// m - Myconid spawn region
+// o - Owl spawn region
+// b - Bat spawn region
+// w - Wolf spawn region
+// k - Kobold spawn region
+// * - Artifact spawn region
+// . - Item spawn region
+//   - Empty walkable region
 
 export const DUNGEON_LAYOUT = `########################
 #...r    #      s   .  #

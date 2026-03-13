@@ -22,6 +22,16 @@
 - **Themes:** Classic D&D underdark—cavernous halls, narrow passages, underground lakes, fungal gardens
 - **Safe Zones:** Limited (entrance, potentially a neutral meeting ground)
 - **Hazards:** Environmental damage (unstable floors, toxic air zones, underground rivers)
+- **Layout Rendering:** Each layout symbol represents a large 150x150 world region, while creatures, items, and the party keep their original compact sizes inside those regions
+- **Camera:** The viewport stays the same size and remains centered on the party as the dungeon scrolls around them
+
+### Spawn Regions & Respawn
+
+- **Symbol semantics:** Non-wall symbols are spawn regions rather than fixed single-tile placements
+- **Initial spawn:** At the start of a run, the associated creature, item, or artifact appears somewhere inside its marked region
+- **Persistence after movement:** Once spawned, the entity can move freely through the dungeon or be carried away by the party
+- **Respawn rule:** If a spawned entity is removed from play entirely, a replacement appears in its original region after a cooldown
+- **Current cooldowns:** Items return faster than creatures; artifact and party start regions do not auto-respawn
 
 ### Creature Ecosystem (50/50 Animal / Monster Split)
 

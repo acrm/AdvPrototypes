@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { GameState, Vector2, GameObject, Item } from '../types/game'
-import { initializeMap, isSleeping } from '../systems/MapGenerator'
+import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, isPositionWalkable } from '../systems/Pathfinding'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
@@ -204,6 +204,7 @@ export const DungeonGame: React.FC = () => {
     const interval = setInterval(() => {
       setGameState((prev) => {
         // Update cycle time (240 seconds = full cycle)
+        const nextGameTime = prev.gameTime + 0.05
         const newCycleTime = (prev.cycleTime + 0.05) % 240
 
         const updatedCreatures = prev.map.creatures.map((creature) => {
@@ -311,10 +312,20 @@ export const DungeonGame: React.FC = () => {
           }
         })
 
+        const updatedMap = refreshSpawnZones(
+          {
+            ...prev.map,
+            creatures: updatedCreatures,
+          },
+          nextGameTime,
+          newCycleTime,
+          prev.party.carriedItem
+        )
+
         return {
           ...prev,
-          map: { ...prev.map, creatures: updatedCreatures },
-          gameTime: prev.gameTime + 0.05,
+          map: updatedMap,
+          gameTime: nextGameTime,
           cycleTime: newCycleTime,
         }
       })

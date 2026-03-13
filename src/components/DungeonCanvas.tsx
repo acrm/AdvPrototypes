@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { GameState, Vector2 } from '../types/game'
 
+const VIEWPORT_WIDTH = 1200
+const VIEWPORT_HEIGHT = 800
+
 interface DungeonCanvasProps {
   gameState: GameState
   onCanvasClick: (pos: Vector2) => void
@@ -17,25 +20,33 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    const camera = getCameraOffset(gameState, canvas.width, canvas.height)
+
     // Clear canvas
-    ctx.fillStyle = '#1a1a1a'
+    ctx.fillStyle = '#0d100d'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Draw grid
-    ctx.strokeStyle = '#333'
-    ctx.lineWidth = 0.5
-    for (let i = 0; i < canvas.width; i += 50) {
-      ctx.beginPath()
-      ctx.moveTo(i, 0)
-      ctx.lineTo(i, canvas.height)
-      ctx.stroke()
+    // Draw large dungeon regions in screen space so the viewport stays fixed
+    const tileSize = gameState.map.layoutCellSize
+    const startCol = Math.max(0, Math.floor(camera.x / tileSize))
+    const endCol = Math.min(Math.ceil((camera.x + canvas.width) / tileSize), Math.ceil(gameState.map.width / tileSize))
+    const startRow = Math.max(0, Math.floor(camera.y / tileSize))
+    const endRow = Math.min(Math.ceil((camera.y + canvas.height) / tileSize), Math.ceil(gameState.map.height / tileSize))
+
+    for (let row = startRow; row < endRow; row++) {
+      for (let col = startCol; col < endCol; col++) {
+        const screenX = col * tileSize - camera.x
+        const screenY = row * tileSize - camera.y
+        ctx.fillStyle = (row + col) % 2 === 0 ? '#141914' : '#101510'
+        ctx.fillRect(screenX, screenY, tileSize, tileSize)
+        ctx.strokeStyle = '#1f291f'
+        ctx.lineWidth = 1
+        ctx.strokeRect(screenX, screenY, tileSize, tileSize)
+      }
     }
-    for (let i = 0; i < canvas.height; i += 50) {
-      ctx.beginPath()
-      ctx.moveTo(0, i)
-      ctx.lineTo(canvas.width, i)
-      ctx.stroke()
-    }
+
+    ctx.save()
+    ctx.translate(-camera.x, -camera.y)
 
     // Draw static objects (rectangles)
     for (const obj of gameState.map.objects) {
@@ -116,6 +127,8 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       ctx.arc(carryPosition.x, carryPosition.y, 5, 0, Math.PI * 2)
       ctx.fill()
     }
+
+    ctx.restore()
   }, [gameState])
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -126,8 +139,9 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     // Account for canvas scaling
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+    const camera = getCameraOffset(gameState, canvas.width, canvas.height)
+    const x = (e.clientX - rect.left) * scaleX + camera.x
+    const y = (e.clientY - rect.top) * scaleY + camera.y
 
     onCanvasClick({ x, y })
   }
@@ -166,8 +180,9 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     const rect = canvas.getBoundingClientRect()
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+    const camera = getCameraOffset(gameState, canvas.width, canvas.height)
+    const x = (e.clientX - rect.left) * scaleX + camera.x
+    const y = (e.clientY - rect.top) * scaleY + camera.y
 
     setIsHoveringObject(checkIfHoveringObject(x, y))
   }
@@ -175,13 +190,23 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
   return (
     <canvas
       ref={canvasRef}
-      width={1200}
-      height={800}
+      width={VIEWPORT_WIDTH}
+      height={VIEWPORT_HEIGHT}
       onClick={handleCanvasClick}
       onMouseMove={handleCanvasMouseMove}
       className={`dungeon-canvas ${isHoveringObject ? 'hovering-object' : ''}`}
     />
   )
+}
+
+function getCameraOffset(gameState: GameState, viewportWidth: number, viewportHeight: number): Vector2 {
+  const maxX = Math.max(0, gameState.map.width - viewportWidth)
+  const maxY = Math.max(0, gameState.map.height - viewportHeight)
+
+  return {
+    x: Math.max(0, Math.min(gameState.party.position.x - viewportWidth / 2, maxX)),
+    y: Math.max(0, Math.min(gameState.party.position.y - viewportHeight / 2, maxY)),
+  }
 }
 
 function drawTriangle(
