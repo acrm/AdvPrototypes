@@ -9,6 +9,19 @@
 - [ ] Camera/viewport system
 - [x] Mouse click input system (movement, object interaction)
 
+### Chunk-Based Dungeon Generation
+- [ ] Treat layout as a chunk-type map, not as final collision geometry
+- [ ] Expand each layout symbol into a `5 x 5` gameplay-cell chunk
+- [ ] Wall chunk generator: keep impassable central core
+- [ ] Wall chunk generator: connect core stone continuously to neighboring wall chunks
+- [ ] Wall chunk generator: carve side recesses from borders facing open chunks
+- [ ] Wall chunk generator: cut corner cells when both corner-adjacent chunks are open
+- [ ] Open chunk generator: allow wall-side protrusions without breaking traversability
+- [ ] Open chunk generator: guarantee a path of width `>= 1` cell between all open sides
+- [ ] Validate diagonal passage rules inside generated chunks (no blocked corner-cuts)
+- [ ] Junction chunk option: allow a central blocked cluster of `1-3` cells when chunk has more than two open sides
+- [ ] Build final navigation/collision map from generated chunk micro-grids
+
 ### Creature AI System
 - [x] Creature entity framework with sleep/wake cycles
 - [x] 240-second game cycle with time progression
@@ -82,6 +95,8 @@
 - [x] Parse trap zone symbols: `R/S/G/Y/O/B/W/K`
 - [x] Keep `.` as item zone and `*` as artifact zone
 - [x] Treat symbols as zone definitions, not fixed single-entity placements
+- [ ] Attach chunk generator to zone map before spawn placement
+- [ ] Ensure spawn placement respects blocked cells inside generated chunks
 
 ### Player Interaction System - Object Actions
 - [x] Object click detection 
@@ -137,6 +152,10 @@
 - [ ] Verify selected-creature detection ring matches configured detection radius
 - [ ] Verify predator species attack only configured prey species and player
 - [ ] Verify every trap diamond color matches its target species mapping
+- [ ] Verify every wall chunk keeps an impassable connected core
+- [ ] Verify every open chunk connects all of its open sides through valid micro-paths
+- [ ] Verify diagonal traversal remains legal in generated chunk interiors
+- [ ] Verify junction-center blockers never isolate any open edge
 
 ---
 
@@ -229,6 +248,15 @@
 ## Known Issues & Implementation Notes
 
 **Implementation Reference (for coding agent):**
+- Chunk generation rules:
+  - Each layout symbol expands into a `5 x 5` gameplay-cell chunk
+  - Wall chunks keep a blocked center and stay stone-connected to adjacent wall chunks
+  - Wall chunks may have recesses from sides facing open chunks
+  - Wall chunk corners may be cut if both orthogonal neighboring corner chunks are open
+  - Open chunks may include wall protrusions from blocked sides
+  - Every open side of a chunk must connect to every other open side through at least one traversable route of width `>= 1` cell
+  - Diagonal passage must obey pathfinding corner rules
+  - Chunks with more than two open sides may contain a separate central blocked cluster of `1-3` cells if connectivity is preserved
 - Diet priorities (ordered):
   - Rat: `food:fungi`, `food:organic_matter`, `food:insects`
   - Spider: `food:insects`, `creature:rat`, `creature:bat`, `player`
@@ -248,6 +276,7 @@
 - All creature behaviors seeded for consistency across playthroughs
 - Sleep variation per creature uses consistent PRNG
 - Waypoint generation deterministic per creature ID
+- Chunk micro-generation should also be deterministic from layout + seed
 
 **Zone System:**
 - Creatures respect assigned zone type (never permanently leave)

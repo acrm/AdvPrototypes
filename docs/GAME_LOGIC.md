@@ -22,7 +22,7 @@
 - **Themes:** Classic D&D underdark—cavernous halls, narrow passages, underground lakes, fungal gardens
 - **Safe Zones:** Limited (entrance, potentially a neutral meeting ground)
 - **Hazards:** Environmental damage (unstable floors, toxic air zones, underground rivers)
-- **Layout Rendering:** Each layout symbol represents a large 150x150 world region, while creatures, items, and the party keep their original compact sizes inside those regions
+- **Layout Rendering:** The text layout is a coarse map of chunk types. Each layout symbol expands into a dungeon chunk made of `5 x 5` real gameplay cells.
 - **Camera:** The viewport stays the same size and remains centered on the party as the dungeon scrolls around them
 
 ### Spawn Regions & Respawn
@@ -45,6 +45,42 @@
 **Spawn Region Rule:**
 - Layout letters define zone type and spawn source, not fixed permanent coordinates of one entity.
 - Multiple entities can exist over time from one region due to respawn.
+
+### Chunk-Based Dungeon Generation
+
+**Core Rule:**
+- The layout file is not a final collision map. It is a map of chunk categories.
+- Each chunk resolves into a `5 x 5` micro-grid of real navigation cells.
+
+**Wall Chunk Rules (`#`):**
+- A wall chunk is never required to fill all 25 cells with rock.
+- The wall chunk must always contain an impassable core in its center.
+- That core must connect with solid stone cells of adjacent wall chunks, creating continuous rock mass.
+- If a wall chunk borders an open chunk, it may contain recesses carved in from that open side.
+- Corner cells may be cut away when both orthogonal neighboring chunks at that corner are open chunks.
+- Result: wall chunks look less like full rectangles and more like natural cave stone with trimmed corners and side notches.
+
+**Open / Corridor Chunk Rules:**
+- An open chunk is not guaranteed to have all 25 cells walkable.
+- Along borders facing wall chunks, the generator may add stone protrusions into the chunk.
+- These protrusions must never block the mandatory internal path connections described below.
+
+**Connectivity Guarantee for Open Chunks:**
+- For every side of the chunk that touches a neighboring open chunk, there must be a traversable entrance/exit on that side.
+- Inside the chunk, there must be at least one continuous path of width `>= 1` cell from any open side to every other open side.
+- Diagonal movement through the chunk must remain valid: no corner-cutting into blocked diagonals.
+- In practice, if two cells touch only diagonally, the required orthogonal corner cells must also allow that diagonal passage according to pathfinding rules.
+
+**Central Obstacles in Junction Chunks:**
+- If a chunk has more than two open sides, it may contain a separate blocked cluster in the center.
+- This central blocked cluster may occupy `1-3` cells.
+- The cluster is allowed only if all open sides remain connected to each other through valid paths.
+
+**Design Intent:**
+- The chunk system should create cave-like negative space instead of flat rectangular rooms.
+- Walls should feel thick and geologic.
+- Corridors should stay readable and fair while still appearing irregular.
+- The global dungeon must remain traversable when converted from chunk map to micro-grid.
 
 ### Creature Ecosystem (50/50 Animal / Monster Split)
 
