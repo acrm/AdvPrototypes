@@ -11,26 +11,38 @@
 // b - Bat spawn region
 // w - Wolf spawn region
 // k - Kobold spawn region
+// F - Fungi food spawn region
+// N - Organic matter food spawn region
+// M - Meat food spawn region
+// I - Insect food spawn region
+// R - Trap spawn region targeting rats
+// S - Trap spawn region targeting spiders
+// G - Trap spawn region targeting goblins
+// Y - Trap spawn region targeting myconids
+// O - Trap spawn region targeting owls
+// B - Trap spawn region targeting bats
+// W - Trap spawn region targeting wolves
+// K - Trap spawn region targeting kobolds
 // * - Artifact spawn region
 // . - Item spawn region
 //   - Empty walkable region
 
 export const DUNGEON_LAYOUT = `########################
-#...r    #      s   .  #
+#...rFN  #  I   s R .  #
 #   #### #  ##  #### # #
 #   #  # #  ##     # # #
 ### #  # #### #### # # #
-#   #           #  # # #
+#   #   M       #  # # #
 # ### ######### #  # # #
-#   #         # #    # #
+#   #   F     # # I  # #
 # # # ####### #   #### #
-# #   #     #  g       #
+# #   #  N  #  g   G   #
 # ##### ### ########## #
-#b    # # #        w   #
+#b  B # # #      W w   #
 ##### # # # ########## #
-#   #       #   m      #
-# # ####### #   ###### #
-#.k       .   o     *  #`
+#   #   Y   #   m  O   #
+# # ####### # I ###### #
+#.k  K  S .   o F   *  #`
 
 export const GRID_COLS = 24
 export const GRID_ROWS = 16

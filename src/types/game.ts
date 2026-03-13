@@ -5,7 +5,7 @@ export interface Vector2 {
   y: number
 }
 
-export type ObjectType = 'creature' | 'obstacle' | 'item' | 'artifact' | 'food' | 'spawn_zone'
+export type ObjectType = 'creature' | 'obstacle' | 'item' | 'artifact' | 'food' | 'trap' | 'spawn_zone'
 
 export type CreatureState = 'sleeping' | 'idle' | 'patrol'
 
@@ -13,9 +13,15 @@ export type FoodType = 'fungi' | 'organic_matter' | 'meat' | 'insects'
 
 export type CreatureSpecies = 'rat' | 'spider' | 'goblin' | 'myconid' | 'owl' | 'bat' | 'wolf' | 'kobold'
 
+export type FoodDietTarget = `food:${FoodType}`
+
+export type CreatureDietTarget = `creature:${CreatureSpecies}`
+
+export type DietTarget = FoodDietTarget | CreatureDietTarget | 'player'
+
 export type ItemTemplate = 'torch' | 'food_ration' | 'treasure'
 
-export type SpawnKind = 'creature' | 'item' | 'artifact'
+export type SpawnKind = 'creature' | 'item' | 'artifact' | 'food' | 'trap'
 
 export interface GameObject {
   id: string
@@ -37,6 +43,7 @@ export interface SleepSchedule {
 
 export interface Creature extends GameObject {
   type: 'creature'
+  species: CreatureSpecies
   behavior?: string
   diet?: string
   threat?: string
@@ -44,11 +51,12 @@ export interface Creature extends GameObject {
   waypoints: Vector2[] // random movement path
   speed: number // movement speed
   state: CreatureState // current state
+  detectionRadius: number // radius used by line-of-sight checks
   sleepSchedule: SleepSchedule // sleep/wake pattern
   idleTurnInterval: number // seconds between idle turns (1-2s)
   nextIdleTurnAt: number // absolute game time when next idle turn happens
   carriedFood: Food | null // food being carried
-  preferredFoodTypes: FoodType[] // what food this creature eats
+  dietPriorities: DietTarget[] // ordered by preference (index 0 is highest priority)
 }
 
 export interface Food extends GameObject {
@@ -57,12 +65,20 @@ export interface Food extends GameObject {
   nutritionValue: number
 }
 
+export interface Trap extends GameObject {
+  type: 'trap'
+  targetSpecies: CreatureSpecies
+  triggerRadius: number
+}
+
 export interface SpawnZone extends GameObject {
   type: 'spawn_zone'
   spawnKind: SpawnKind
   sourceSymbol: string
   creatureSpecies?: CreatureSpecies
   itemTemplate?: ItemTemplate
+  foodType?: FoodType
+  trapTargetSpecies?: CreatureSpecies
   respawnCooldown: number // seconds before zone spawns a replacement
   respawnStartedAt: number | null // when the current missing-state cooldown started
   activeEntityId: string | null // currently spawned entity linked to this zone
@@ -99,6 +115,7 @@ export interface GameMap {
   creatures: Creature[]
   items: Item[]
   food: Food[]
+  traps: Trap[]
   spawnZones: SpawnZone[]
   artifact: Artifact
 }

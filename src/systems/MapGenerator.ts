@@ -3,11 +3,13 @@ import {
   Creature,
   CreatureSpecies,
   Food,
+  FoodType,
   GameMap,
   Item,
   ItemTemplate,
   SleepSchedule,
   SpawnZone,
+  Trap,
   Vector2,
 } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
@@ -17,8 +19,11 @@ import { DUNGEON_LAYOUT, GRID_COLS, GRID_ROWS } from '../data/dungeonLayout'
 const DEFAULT_CYCLE_TIME = GAME_SETTINGS.cycle.initialCycleTime
 const ITEM_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.item
 const CREATURE_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.creature
+const FOOD_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.food
+const TRAP_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.trap
+const DEFAULT_TRAP_TRIGGER_RADIUS = GAME_SETTINGS.spawn.defaultTrapTriggerRadius
 
-// Helper to convert layout coordinates to world position (center of large 3x3 region)
+// Convert layout coordinates to world position (center of a large region).
 function layoutToWorld(layoutX: number, layoutY: number): Vector2 {
   return {
     x: layoutX * LAYOUT_REGION_SIZE + LAYOUT_REGION_SIZE / 2,
@@ -32,6 +37,18 @@ function getRandomFloat(min: number, max: number): number {
 
 function getRandomDirection(): number {
   return Math.random() * Math.PI * 2
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.replace('#', '')
+  if (normalized.length !== 6) {
+    return `rgba(255, 255, 255, ${alpha})`
+  }
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16)
+  const g = Number.parseInt(normalized.slice(2, 4), 16)
+  const b = Number.parseInt(normalized.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 function getZoneCandidatePositions(zone: SpawnZone): Vector2[] {
@@ -56,19 +73,10 @@ function getRandomPositionInZone(zone: SpawnZone): Vector2 {
   return candidates[Math.floor(Math.random() * candidates.length)]
 }
 
-// Helper to generate sleep schedule for creature
-function generateSleepSchedule(isNocturnal: boolean = false): SleepSchedule {
+function generateSleepSchedule(isNocturnal: boolean): SleepSchedule {
   const sleepConfig = isNocturnal
     ? GAME_SETTINGS.npc.sleepSchedule.nocturnal
     : GAME_SETTINGS.npc.sleepSchedule.diurnal
-
-  if (isNocturnal) {
-    return {
-      sleepStart: getRandomFloat(sleepConfig.startRange[0], sleepConfig.startRange[1]),
-      sleepEnd: getRandomFloat(sleepConfig.endRange[0], sleepConfig.endRange[1]),
-      variation: getRandomFloat(sleepConfig.variationRange[0], sleepConfig.variationRange[1]),
-    }
-  }
 
   return {
     sleepStart: getRandomFloat(sleepConfig.startRange[0], sleepConfig.startRange[1]),
@@ -107,7 +115,17 @@ type CreatureTemplate = {
   threat: string
   speedRange: readonly [number, number]
   isNocturnal: boolean
-  preferredFoodTypes: Creature['preferredFoodTypes']
+  dietPriorities: Creature['dietPriorities']
+  detectionRadius: number
+}
+
+type FoodTemplate = {
+  foodType: FoodType
+  color: string
+  name: string
+  description: string
+  nutritionValue: number
+  zoneTintColor: string
 }
 
 const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
@@ -123,7 +141,8 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Low (unless in swarms)',
     speedRange: GAME_SETTINGS.npc.speedRanges.rat,
     isNocturnal: true,
-    preferredFoodTypes: ['fungi', 'organic_matter'],
+    dietPriorities: ['food:fungi', 'food:organic_matter', 'food:insects'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.rat,
   },
   spider: {
     species: 'spider',
@@ -137,7 +156,8 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Medium (webbing can immobilize)',
     speedRange: GAME_SETTINGS.npc.speedRanges.spider,
     isNocturnal: false,
-    preferredFoodTypes: ['insects', 'meat'],
+    dietPriorities: ['food:insects', 'creature:rat', 'creature:bat', 'player'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.spider,
   },
   goblin: {
     species: 'goblin',
@@ -151,7 +171,8 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Medium (organized, uses tools/traps)',
     speedRange: GAME_SETTINGS.npc.speedRanges.goblin,
     isNocturnal: false,
-    preferredFoodTypes: ['meat', 'organic_matter'],
+    dietPriorities: ['food:meat', 'food:organic_matter', 'creature:rat', 'player'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.goblin,
   },
   myconid: {
     species: 'myconid',
@@ -165,7 +186,8 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Medium (spores can cause effects)',
     speedRange: GAME_SETTINGS.npc.speedRanges.myconid,
     isNocturnal: false,
-    preferredFoodTypes: ['organic_matter', 'fungi'],
+    dietPriorities: ['food:organic_matter', 'food:fungi'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.myconid,
   },
   owl: {
     species: 'owl',
@@ -179,7 +201,8 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Low (avoids humanoids)',
     speedRange: GAME_SETTINGS.npc.speedRanges.owl,
     isNocturnal: true,
-    preferredFoodTypes: ['meat', 'insects'],
+    dietPriorities: ['creature:rat', 'creature:bat', 'food:insects', 'player'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.owl,
   },
   bat: {
     species: 'bat',
@@ -193,7 +216,8 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Low (startles easily)',
     speedRange: GAME_SETTINGS.npc.speedRanges.bat,
     isNocturnal: true,
-    preferredFoodTypes: ['insects'],
+    dietPriorities: ['food:insects', 'food:fungi'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.bat,
   },
   wolf: {
     species: 'wolf',
@@ -207,7 +231,8 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'High (aggressive when threatened)',
     speedRange: GAME_SETTINGS.npc.speedRanges.wolf,
     isNocturnal: false,
-    preferredFoodTypes: ['meat'],
+    dietPriorities: ['creature:goblin', 'creature:rat', 'food:meat', 'player'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.wolf,
   },
   kobold: {
     species: 'kobold',
@@ -221,8 +246,98 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Medium (traps and numbers)',
     speedRange: GAME_SETTINGS.npc.speedRanges.kobold,
     isNocturnal: false,
-    preferredFoodTypes: ['meat', 'organic_matter', 'insects'],
+    dietPriorities: ['food:meat', 'food:insects', 'food:organic_matter', 'creature:rat'],
+    detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.kobold,
   },
+}
+
+const FOOD_TEMPLATES: Record<FoodType, FoodTemplate> = {
+  fungi: {
+    foodType: 'fungi',
+    color: '#8D6E63',
+    name: 'Fungi Cluster',
+    description: 'Moist cave fungi rich with nutrients.',
+    nutritionValue: 2,
+    zoneTintColor: 'rgba(103, 58, 183, 0.12)',
+  },
+  organic_matter: {
+    foodType: 'organic_matter',
+    color: '#6D4C41',
+    name: 'Organic Matter',
+    description: 'Decomposing cave debris and plant remains.',
+    nutritionValue: 2,
+    zoneTintColor: 'rgba(121, 85, 72, 0.12)',
+  },
+  meat: {
+    foodType: 'meat',
+    color: '#B71C1C',
+    name: 'Carrion Chunk',
+    description: 'Raw carrion from prior hunts.',
+    nutritionValue: 3,
+    zoneTintColor: 'rgba(183, 28, 28, 0.14)',
+  },
+  insects: {
+    foodType: 'insects',
+    color: '#9CCC65',
+    name: 'Insect Swarm',
+    description: 'Dense cluster of cave insects.',
+    nutritionValue: 1,
+    zoneTintColor: 'rgba(156, 204, 101, 0.12)',
+  },
+}
+
+const FOOD_SYMBOL_TO_TYPE: Record<string, FoodType> = {
+  F: 'fungi',
+  N: 'organic_matter',
+  M: 'meat',
+  I: 'insects',
+}
+
+const TRAP_SYMBOL_TO_TARGET: Record<string, CreatureSpecies> = {
+  R: 'rat',
+  S: 'spider',
+  G: 'goblin',
+  Y: 'myconid',
+  O: 'owl',
+  B: 'bat',
+  W: 'wolf',
+  K: 'kobold',
+}
+
+function getItemTemplateForIndex(index: number): ItemTemplate {
+  const rotation = GAME_SETTINGS.spawn.itemTemplateRotation
+  return rotation[(index - 1) % rotation.length]
+}
+
+function getCreatureSpeciesFromSymbol(symbol: string): CreatureSpecies | null {
+  switch (symbol) {
+    case 'r':
+      return 'rat'
+    case 's':
+      return 'spider'
+    case 'g':
+      return 'goblin'
+    case 'm':
+      return 'myconid'
+    case 'o':
+      return 'owl'
+    case 'b':
+      return 'bat'
+    case 'w':
+      return 'wolf'
+    case 'k':
+      return 'kobold'
+    default:
+      return null
+  }
+}
+
+function getFoodTypeFromSymbol(symbol: string): FoodType | null {
+  return FOOD_SYMBOL_TO_TYPE[symbol] ?? null
+}
+
+function getTrapTargetFromSymbol(symbol: string): CreatureSpecies | null {
+  return TRAP_SYMBOL_TO_TARGET[symbol] ?? null
 }
 
 function createCreatureFromZone(zone: SpawnZone, cycleTime: number, gameTime: number = 0): Creature {
@@ -240,6 +355,7 @@ function createCreatureFromZone(zone: SpawnZone, cycleTime: number, gameTime: nu
   return {
     id: `${zone.id}_spawn_${nextSpawnCount}`,
     type: 'creature',
+    species: template.species,
     position,
     width: template.width,
     height: template.height,
@@ -253,10 +369,60 @@ function createCreatureFromZone(zone: SpawnZone, cycleTime: number, gameTime: nu
     waypoints: [],
     speed,
     state,
+    detectionRadius: template.detectionRadius,
     sleepSchedule,
     ...createIdleTurnTiming(gameTime),
     carriedFood: null,
-    preferredFoodTypes: template.preferredFoodTypes,
+    dietPriorities: template.dietPriorities,
+    sourceSpawnZoneId: zone.id,
+  }
+}
+
+function createFoodFromZone(zone: SpawnZone): Food {
+  if (!zone.foodType) {
+    throw new Error(`Spawn zone ${zone.id} does not define food type.`)
+  }
+
+  const position = getRandomPositionInZone(zone)
+  const nextSpawnCount = zone.spawnCount + 1
+  const template = FOOD_TEMPLATES[zone.foodType]
+
+  return {
+    id: `${zone.id}_spawn_${nextSpawnCount}`,
+    type: 'food',
+    foodType: template.foodType,
+    nutritionValue: template.nutritionValue,
+    position,
+    width: 12,
+    height: 12,
+    color: template.color,
+    name: template.name,
+    description: template.description,
+    sourceSpawnZoneId: zone.id,
+  }
+}
+
+function createTrapFromZone(zone: SpawnZone): Trap {
+  if (!zone.trapTargetSpecies) {
+    throw new Error(`Spawn zone ${zone.id} does not define trap target species.`)
+  }
+
+  const position = getRandomPositionInZone(zone)
+  const nextSpawnCount = zone.spawnCount + 1
+  const trapColor = GAME_SETTINGS.spawn.trapColorsByTargetSpecies[zone.trapTargetSpecies]
+  const targetName = CREATURE_TEMPLATES[zone.trapTargetSpecies].name
+
+  return {
+    id: `${zone.id}_spawn_${nextSpawnCount}`,
+    type: 'trap',
+    targetSpecies: zone.trapTargetSpecies,
+    triggerRadius: DEFAULT_TRAP_TRIGGER_RADIUS,
+    position,
+    width: 16,
+    height: 16,
+    color: trapColor,
+    name: `${targetName} Trap`,
+    description: `A trap tuned to trigger primarily on ${targetName}.`,
     sourceSpawnZoneId: zone.id,
   }
 }
@@ -347,6 +513,26 @@ function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: numbe
     }
   }
 
+  if (zone.spawnKind === 'food') {
+    const food = createFoodFromZone(zone)
+    map.food.push(food)
+    return {
+      ...zone,
+      activeEntityId: food.id,
+      spawnCount: zone.spawnCount + 1,
+    }
+  }
+
+  if (zone.spawnKind === 'trap') {
+    const trap = createTrapFromZone(zone)
+    map.traps.push(trap)
+    return {
+      ...zone,
+      activeEntityId: trap.id,
+      spawnCount: zone.spawnCount + 1,
+    }
+  }
+
   const artifact = createArtifactFromZone(zone)
   map.artifact = artifact
   return {
@@ -382,34 +568,6 @@ function createSpawnZoneBase(
   }
 }
 
-function getItemTemplateForIndex(index: number): ItemTemplate {
-  const rotation = GAME_SETTINGS.spawn.itemTemplateRotation
-  return rotation[(index - 1) % rotation.length]
-}
-
-function getCreatureSpeciesFromSymbol(symbol: string): CreatureSpecies | null {
-  switch (symbol) {
-    case 'r':
-      return 'rat'
-    case 's':
-      return 'spider'
-    case 'g':
-      return 'goblin'
-    case 'm':
-      return 'myconid'
-    case 'o':
-      return 'owl'
-    case 'b':
-      return 'bat'
-    case 'w':
-      return 'wolf'
-    case 'k':
-      return 'kobold'
-    default:
-      return null
-  }
-}
-
 export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
   const map: GameMap = {
     width: GRID_COLS * LAYOUT_REGION_SIZE,
@@ -419,6 +577,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
     creatures: [],
     items: [],
     food: [],
+    traps: [],
     spawnZones: [],
     artifact: {
       id: 'artifact_placeholder',
@@ -486,6 +645,49 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             name: `${CREATURE_TEMPLATES[creatureSpecies].name} Territory`,
             description: `A wide spawn region for ${CREATURE_TEMPLATES[creatureSpecies].name}.`,
             respawnCooldown: CREATURE_RESPAWN_COOLDOWN,
+            color: 'rgba(91, 122, 91, 0.08)',
+          }
+        )
+        map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
+        continue
+      }
+
+      const foodType = getFoodTypeFromSymbol(symbol)
+      if (foodType) {
+        spawnZoneSequence++
+        const template = FOOD_TEMPLATES[foodType]
+        const zone = createSpawnZoneBase(
+          `spawn_zone_${spawnZoneSequence}`,
+          position,
+          symbol,
+          'food',
+          {
+            foodType,
+            name: `${template.name} Grounds`,
+            description: `A food zone for ${template.name.toLowerCase()} spawns.`,
+            respawnCooldown: FOOD_RESPAWN_COOLDOWN,
+            color: template.zoneTintColor,
+          }
+        )
+        map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
+        continue
+      }
+
+      const trapTargetSpecies = getTrapTargetFromSymbol(symbol)
+      if (trapTargetSpecies) {
+        spawnZoneSequence++
+        const trapColor = GAME_SETTINGS.spawn.trapColorsByTargetSpecies[trapTargetSpecies]
+        const zone = createSpawnZoneBase(
+          `spawn_zone_${spawnZoneSequence}`,
+          position,
+          symbol,
+          'trap',
+          {
+            trapTargetSpecies,
+            name: `${CREATURE_TEMPLATES[trapTargetSpecies].name} Trap Site`,
+            description: `Trap spawning zone tuned for ${CREATURE_TEMPLATES[trapTargetSpecies].name}.`,
+            respawnCooldown: TRAP_RESPAWN_COOLDOWN,
+            color: hexToRgba(trapColor, 0.12),
           }
         )
         map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
@@ -506,6 +708,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             name: 'Item Cache',
             description: 'A broad region where a small item can appear again after a cooldown.',
             respawnCooldown: ITEM_RESPAWN_COOLDOWN,
+            color: 'rgba(212, 175, 55, 0.09)',
           }
         )
         map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
@@ -524,6 +727,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             name: `Artifact Chamber ${artifactZoneCount}`,
             description: 'A large chamber where the artifact first appears.',
             respawnCooldown: 0,
+            color: 'rgba(255, 215, 0, 0.1)',
           }
         )
         map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
@@ -551,6 +755,9 @@ export function refreshSpawnZones(
   for (const food of map.food) {
     presentIds.add(food.id)
   }
+  for (const trap of map.traps) {
+    presentIds.add(trap.id)
+  }
   if (carriedItem) {
     presentIds.add(carriedItem.id)
   }
@@ -563,6 +770,7 @@ export function refreshSpawnZones(
     creatures: [...map.creatures],
     items: [...map.items],
     food: [...map.food],
+    traps: [...map.traps],
     spawnZones: map.spawnZones.map((zone) => ({ ...zone })),
     artifact: { ...map.artifact },
   }
@@ -603,6 +811,24 @@ export function refreshSpawnZones(
       const item = createItemFromZone(zoneCopy)
       nextMap.items.push(item)
       zoneCopy.activeEntityId = item.id
+      zoneCopy.spawnCount += 1
+      zoneCopy.respawnStartedAt = null
+      return zoneCopy
+    }
+
+    if (zoneCopy.spawnKind === 'food') {
+      const food = createFoodFromZone(zoneCopy)
+      nextMap.food.push(food)
+      zoneCopy.activeEntityId = food.id
+      zoneCopy.spawnCount += 1
+      zoneCopy.respawnStartedAt = null
+      return zoneCopy
+    }
+
+    if (zoneCopy.spawnKind === 'trap') {
+      const trap = createTrapFromZone(zoneCopy)
+      nextMap.traps.push(trap)
+      zoneCopy.activeEntityId = trap.id
       zoneCopy.spawnCount += 1
       zoneCopy.respawnStartedAt = null
       return zoneCopy

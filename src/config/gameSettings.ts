@@ -25,7 +25,7 @@ export const GAME_SETTINGS = {
   },
   player: {
     movementTickMs: 30,
-    speedPerTick: 2,
+    speedPerTick: 5,
     interactionRadius: 30,
     pickupRadius: 30,
     timeStep: 0.001,
@@ -37,8 +37,20 @@ export const GAME_SETTINGS = {
     mapBoundaryPadding: 30,
     respawnCooldownSeconds: {
       creature: 35,
+      food: 14,
       item: 18,
+      trap: 22,
     },
+    detectionRadiusBySpecies: {
+      rat: 120,
+      spider: 190,
+      goblin: 160,
+      myconid: 135,
+      owl: 210,
+      bat: 145,
+      wolf: 200,
+      kobold: 155,
+    } as Record<CreatureSpecies, number>,
     speedRanges: {
       rat: [0.4, 0.7],
       spider: [0.3, 0.6],
@@ -64,5 +76,16 @@ export const GAME_SETTINGS = {
   },
   spawn: {
     itemTemplateRotation: ['torch', 'food_ration', 'treasure'] as ItemTemplate[],
+    trapColorsByTargetSpecies: {
+      rat: '#f4d03f',
+      spider: '#8e44ad',
+      goblin: '#2ecc71',
+      myconid: '#9b59b6',
+      owl: '#f39c12',
+      bat: '#34495e',
+      wolf: '#5dade2',
+      kobold: '#e67e22',
+    } as Record<CreatureSpecies, string>,
+    defaultTrapTriggerRadius: 22,
   },
 } as const
