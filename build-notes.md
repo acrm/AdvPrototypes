@@ -20,3 +20,4 @@
 - 2026w11-0.2 — Enforce staged-only bump flow for parallel agents
 - 2026w11-0.3 — Centralize gameplay settings and fix pickup flow
 - 2026w11-0.4 — Parameterize cycle phases and spawn defaults
+- 2026w11-0.5 — Implement detection UI and food-trap interactions

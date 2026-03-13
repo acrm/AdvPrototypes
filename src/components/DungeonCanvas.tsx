@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { GameState, Vector2 } from '../types/game'
+import { Creature, GameState, Vector2 } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
 
 const VIEWPORT_WIDTH = GAME_SETTINGS.world.viewportWidth
@@ -68,6 +68,23 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       ctx.fill()
     }
 
+    // Draw food (small circles with outline)
+    for (const food of gameState.map.food) {
+      const radius = food.width / 2
+      ctx.fillStyle = food.color
+      ctx.beginPath()
+      ctx.arc(food.position.x, food.position.y, radius, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
+
+    // Draw traps as diamonds.
+    for (const trap of gameState.map.traps) {
+      drawDiamond(ctx, trap.position, trap.color, trap.width / 2)
+    }
+
     // Draw artifact (highlight circle)
     const artifact = gameState.map.artifact
     ctx.fillStyle = artifact.color
@@ -79,6 +96,31 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     for (const creature of gameState.map.creatures) {
       // All creatures drawn as triangles (sleeping just don't rotate/move)
       drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
+
+      if (gameState.selectedObject?.type === 'creature' && gameState.selectedObject.id === creature.id) {
+        ctx.strokeStyle = '#f8f0c0'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(creature.position.x, creature.position.y, 18, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+    }
+
+    const selectedCreature = getSelectedCreature(gameState)
+    if (selectedCreature) {
+      ctx.fillStyle = 'rgba(255, 200, 120, 0.08)'
+      ctx.strokeStyle = 'rgba(255, 220, 160, 0.4)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(
+        selectedCreature.position.x,
+        selectedCreature.position.y,
+        selectedCreature.detectionRadius,
+        0,
+        Math.PI * 2
+      )
+      ctx.fill()
+      ctx.stroke()
     }
 
     // Draw party path (dashed line)
@@ -156,6 +198,22 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       if (distance <= item.width / 2) return true
     }
 
+    // Check food (circles)
+    for (const food of gameState.map.food) {
+      const dx = x - food.position.x
+      const dy = y - food.position.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance <= food.width / 2) return true
+    }
+
+    // Check traps (diamond approximated with circle)
+    for (const trap of gameState.map.traps) {
+      const dx = x - trap.position.x
+      const dy = y - trap.position.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      if (distance <= trap.width / 2) return true
+    }
+
     // Check artifact (circle)
     const artifact = gameState.map.artifact
     const dx = x - artifact.position.x
@@ -198,6 +256,32 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       className={`dungeon-canvas ${isHoveringObject ? 'hovering-object' : ''}`}
     />
   )
+}
+
+function getSelectedCreature(gameState: GameState): Creature | null {
+  if (!gameState.selectedObject || gameState.selectedObject.type !== 'creature') {
+    return null
+  }
+
+  return gameState.map.creatures.find((creature) => creature.id === gameState.selectedObject?.id) || null
+}
+
+function drawDiamond(
+  ctx: CanvasRenderingContext2D,
+  position: Vector2,
+  color: string,
+  radius: number
+) {
+  ctx.save()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.moveTo(position.x, position.y - radius)
+  ctx.lineTo(position.x + radius, position.y)
+  ctx.lineTo(position.x, position.y + radius)
+  ctx.lineTo(position.x - radius, position.y)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
 }
 
 function getCameraOffset(gameState: GameState, viewportWidth: number, viewportHeight: number): Vector2 {

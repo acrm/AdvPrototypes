@@ -1,5 +1,5 @@
 import React from 'react'
-import { GameObject, Party, Creature } from '../types/game'
+import { Creature, DietTarget, Food, GameObject, Party, Trap } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
 import './InfoPanel.css'
 
@@ -56,17 +56,50 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     const sleepStart = Math.floor(creature.sleepSchedule.sleepStart)
     const sleepEnd = Math.floor(creature.sleepSchedule.sleepEnd)
     desc += `[SLEEP] ${sleepStart}-${sleepEnd}s ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
+    desc += `[DETECTION] ${getDetectionModeLabel(creature)} (${Math.floor(creature.detectionRadius)}px)\n\n`
     
     if (creature.behavior) desc += `[BEHAVIOR] ${creature.behavior}\n`
     if (creature.diet) desc += `[DIET] ${creature.diet}\n`
     if (creature.threat) desc += `[THREAT] ${creature.threat}\n`
     
-    if (creature.preferredFoodTypes && creature.preferredFoodTypes.length > 0) {
-      desc += `[FOOD PREFERENCES] ${creature.preferredFoodTypes.join(', ')}\n`
+    if (creature.dietPriorities.length > 0) {
+      desc += `[DIET PRIORITY] ${creature.dietPriorities.map(formatDietTarget).join(' > ')}\n`
+
+      const predatorTargets = creature.dietPriorities
+        .filter((target) => target.startsWith('creature:') || target === 'player')
+        .map(formatDietTarget)
+
+      if (predatorTargets.length > 0) {
+        desc += `[PREDATOR TARGETS] ${predatorTargets.join(', ')}\n`
+      }
     }
     
     desc += `\n[TIMES OBSERVED] ${party.observedCreatures.get(creature.id) || 0}`
     return desc
+  }
+
+  const getFoodDescription = (food: Food): string => {
+    return [
+      `= ${food.name.toUpperCase()} =`,
+      '',
+      food.description,
+      '',
+      `[TYPE] ${food.type}`,
+      `[FOOD TYPE] ${food.foodType}`,
+      `[NUTRITION] ${food.nutritionValue}`,
+    ].join('\n')
+  }
+
+  const getTrapDescription = (trap: Trap): string => {
+    return [
+      `= ${trap.name.toUpperCase()} =`,
+      '',
+      trap.description,
+      '',
+      `[TYPE] ${trap.type}`,
+      `[TARGET SPECIES] ${trap.targetSpecies}`,
+      `[TRIGGER RADIUS] ${Math.floor(trap.triggerRadius)}px`,
+    ].join('\n')
   }
 
   let content: string = ''
@@ -74,6 +107,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   if (selectedObject) {
     if (selectedObject.type === 'creature') {
       content = getCreatureDescription(selectedObject as Creature)
+    } else if (selectedObject.type === 'food') {
+      content = getFoodDescription(selectedObject as Food)
+    } else if (selectedObject.type === 'trap') {
+      content = getTrapDescription(selectedObject as Trap)
     } else {
       content = `= ${selectedObject.name.toUpperCase()} =\n\n${selectedObject.description}\n\n[TYPE] ${selectedObject.type}`
     }
@@ -109,6 +146,35 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
       </div>
     </div>
   )
+}
+
+function getDetectionModeLabel(creature: Creature): string {
+  if (creature.state === 'sleeping') {
+    return 'Inactive (sleeping)'
+  }
+
+  if (creature.state === 'idle') {
+    return 'Periodic checks (idle)'
+  }
+
+  return 'Full awareness (patrol)'
+}
+
+function formatDietTarget(target: DietTarget): string {
+  if (target === 'player') {
+    return 'player'
+  }
+
+  const [prefix, value] = target.split(':')
+  if (prefix === 'food') {
+    return value.replace('_', ' ')
+  }
+
+  if (prefix === 'creature') {
+    return value
+  }
+
+  return target
 }
 
 interface InfoContentProps {

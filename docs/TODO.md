@@ -19,16 +19,16 @@
 - [x] State transitions based on cycle time
 
 ### Visibility & Detection System
-- [ ] Creature detection radius (varies by species)
+- [x] Creature detection radius (varies by species)
 - [ ] Vision mechanics: sleeping (no detection), idle (periodic checks), patrol (full awareness)
 - [ ] Player detection trigger (line of sight, noise, collision)
 - [ ] ALERT state for creatures (heightened awareness when detecting player)
 - [ ] Detection feedback (visual alert icon or warning)
-- [ ] Selected creature highlight: show translucent detection radius ring on map
+- [x] Selected creature highlight: show translucent detection radius ring on map
 
 ### Territorial System
-- [ ] Spawn zones defined in dungeon layout (zone types, not individual creatures)
-- [ ] Creature assignment to zone types
+- [x] Spawn zones defined in dungeon layout (zone types, not individual creatures)
+- [x] Creature assignment to zone types
 - [ ] Territorial boundaries visualization
 - [ ] Creature movement between adjacent same-type zones
 - [ ] Territorial conflict simulation (when creatures invade territories)
@@ -54,8 +54,8 @@
 - [ ] Priming/Feeding: drop food in creature's sight to begin taming
 - [ ] Friendly state: after 3+ feedings, creature becomes non-hostile
 - [ ] Friendly creature benefits: safe observation, no attacks, spreads non-aggression
-- [ ] Trap map objects spawn as diamonds (not circles)
-- [ ] Trap color encodes target species (fixed palette)
+- [x] Trap map objects spawn as diamonds (not circles)
+- [x] Trap color encodes target species (fixed palette)
 
 ### Movement & Sound System
 - [ ] Speed tiers: fast (noisy), medium (normal), slow (quiet)
@@ -66,22 +66,22 @@
 
 ### Food & Feeding System
 - [x] Food item types: fungi, organic_matter, meat, insects
-- [ ] Spawn zones (semi-transparent, respawning food)
+- [x] Spawn zones (semi-transparent, respawning food)
 - [ ] Creatures pick up and carry food
 - [ ] Creatures move to feeding locations (species-specific behavior)
 - [ ] Feeding duration timer (2-8 seconds by food type)
 - [ ] Food disappears after consumption
 - [ ] Visual rendering of carried food at creature's forward vertex
-- [ ] Ordered diet priorities per species (`dietPriorities`)
-- [ ] Predator-capable species include prey targets (`creature:<species>`) and optional `player`
+- [x] Ordered diet priorities per species (`dietPriorities`)
+- [x] Predator-capable species include prey targets (`creature:<species>`) and optional `player`
 - [ ] Target selection uses first available entry in ordered priority list
 
 ### Layout Marker Integration
-- [ ] Parse creature zone symbols: `r/s/g/m/o/b/w/k`
-- [ ] Parse food zone symbols: `F/N/M/I`
-- [ ] Parse trap zone symbols: `R/S/G/Y/O/B/W/K`
-- [ ] Keep `.` as item zone and `*` as artifact zone
-- [ ] Treat symbols as zone definitions, not fixed single-entity placements
+- [x] Parse creature zone symbols: `r/s/g/m/o/b/w/k`
+- [x] Parse food zone symbols: `F/N/M/I`
+- [x] Parse trap zone symbols: `R/S/G/Y/O/B/W/K`
+- [x] Keep `.` as item zone and `*` as artifact zone
+- [x] Treat symbols as zone definitions, not fixed single-entity placements
 
 ### Player Interaction System - Object Actions
 - [x] Object click detection 
@@ -100,16 +100,16 @@
 - [ ] Giant Spiders (alert, eat-on-site behavior, zone: Spider Nest)
 - [ ] Goblins (organized, carry to den behavior, zone: Goblin Warren)
 - [ ] Owlbear (minimal sleep, apex predator, zone: Owlbear Lair)
-- [ ] Species-specific detection radius values
+- [x] Species-specific detection radius values
 - [ ] Species-specific enrage behavior after trap escape
 
 ### Observation & Information
 - [ ] Creature state display when selected
-- [ ] Show food type information
-- [ ] Show ordered diet priorities in creature details
-- [ ] Show predator targets (including player, if configured) in creature details
+- [x] Show food type information
+- [x] Show ordered diet priorities in creature details
+- [x] Show predator targets (including player, if configured) in creature details
 - [ ] Display zone/territory information
-- [ ] Info panel shows creature detection status
+- [x] Info panel shows creature detection status
 - [ ] Visual indicator for friendly creatures
 - [ ] Visual indicator for enraged creatures
 - [ ] Health heart display in UI
