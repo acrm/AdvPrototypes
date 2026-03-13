@@ -31,7 +31,20 @@
 - **Initial spawn:** At the start of a run, the associated creature, item, or artifact appears somewhere inside its marked region
 - **Persistence after movement:** Once spawned, the entity can move freely through the dungeon or be carried away by the party
 - **Respawn rule:** If a spawned entity is removed from play entirely, a replacement appears in its original region after a cooldown
-- **Current cooldowns:** Items return faster than creatures; artifact and party start regions do not auto-respawn
+- **Current cooldowns:** Food and items return faster than creatures; traps respawn on a medium timer; artifact and party start regions do not auto-respawn
+
+**Authoritative Layout Symbols (for implementer):**
+- `#` = Wall region (impassable)
+- `P` = Party start region
+- `r/s/g/m/o/b/w/k` = Creature spawn regions by species (rat, spider, goblin, myconid, owl, bat, wolf, kobold)
+- `F/N/M/I` = Food spawn regions (`fungi`, `organic_matter`, `meat`, `insects`)
+- `R/S/G/Y/O/B/W/K` = Trap spawn regions targeted by species (rat, spider, goblin, myconid, owl, bat, wolf, kobold)
+- `.` = Generic item spawn region
+- `*` = Artifact spawn region
+
+**Spawn Region Rule:**
+- Layout letters define zone type and spawn source, not fixed permanent coordinates of one entity.
+- Multiple entities can exist over time from one region due to respawn.
 
 ### Creature Ecosystem (50/50 Animal / Monster Split)
 
@@ -149,6 +162,10 @@ Each individual creature has slight variation (±5%) to make patterns non-obviou
 - Creature calls out if intelligent (goblins, drows)
 - In ALERT: creature has +2 detection radius and constant scanning
 
+**Selection Highlight Requirement:**
+- When player selects a creature on the map, render a translucent ring for that creature's current detection radius.
+- The selected creature ring is a gameplay readability aid and must be visible above terrain, below UI labels.
+
 ### Territorial System & Conflicts
 
 **Creature Territories:**
@@ -194,6 +211,20 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 - **Spiders:** Eat on-site (use webbing to hold prey)
 - **Goblins:** Carry to dens/safe zones (organized behavior)
 - **Owlbear:** Eat anywhere (apex predator, fearless)
+
+**Diet Priorities (ordered, highest to lowest):**
+- **Rat:** `food:fungi` -> `food:organic_matter` -> `food:insects`
+- **Spider:** `food:insects` -> `creature:rat` -> `creature:bat` -> `player`
+- **Goblin:** `food:meat` -> `food:organic_matter` -> `creature:rat` -> `player`
+- **Myconid:** `food:organic_matter` -> `food:fungi`
+- **Owl:** `creature:rat` -> `creature:bat` -> `food:insects` -> `player`
+- **Bat:** `food:insects` -> `food:fungi`
+- **Wolf:** `creature:goblin` -> `creature:rat` -> `food:meat` -> `player`
+- **Kobold:** `food:meat` -> `food:insects` -> `food:organic_matter` -> `creature:rat`
+
+**Predation Rule:**
+- Predator-capable species can treat prey creatures and the player as diet targets.
+- `player` as a diet target is species-dependent and lower priority than preferred natural food in most cases.
 
 **Visual Indicator:** Food being carried displays as small object at creature's forward-pointing triangle vertex.
 
@@ -250,6 +281,20 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 - Click ground location → `[Set Trap]`
 - Trap becomes invisible/hidden for 2 seconds
 - When creature walks over armed trap → creature is caught
+
+**Trap Spawn Visual Requirement:**
+- Trap objects spawned from map regions are rendered as colored diamonds.
+- Trap color encodes target species.
+
+**Trap Color Mapping (target species):**
+- Rat: `#f4d03f`
+- Spider: `#8e44ad`
+- Goblin: `#2ecc71`
+- Myconid: `#9b59b6`
+- Owl: `#f39c12`
+- Bat: `#34495e`
+- Wolf: `#5dade2`
+- Kobold: `#e67e22`
 
 **Trapped Creature Effects:**
 - Creature immobilized for 10-15 seconds (depends on creature size)
@@ -323,11 +368,11 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 - Creature **never leaves zone type** (rat cannot go to spider territory permanently)
 
 **Dungeon Layout Notation:**
-- `r` = Rat Warren zone (can have multiple rats, they move within warren)
-- `s` = Spider Nest zone (territorial, usually 1-2 spiders)
-- `g` = Goblin warren zone (organized, hierarchical)
-- `o` = Owlbear lair zone (dangerous apex predator territory)
-- `*` = Artifact location
+- `r/s/g/m/o/b/w/k` = creature territory zones by species
+- `F/N/M/I` = food source zones by food type
+- `R/S/G/Y/O/B/W/K` = trap source zones targeted by species
+- `.` = generic item cache zone
+- `*` = artifact chamber zone
 
 **Zone Transitioning:**
 - Creature patrols between connected zones of same type following waypoints
@@ -394,7 +439,7 @@ Once party *understands* a creature's behavior, options emerge:
 
 ### Must Have:
 - [ ] 3-4 creatures with distinct AI patterns (Rats, Spiders, Goblins, Owlbear)
-- [ ] Day/night cycle affecting creature activity
+- [ ] 240-second underground activity cycle affecting creature states
 - [ ] Player movement with stealth mechanics
 - [ ] Visual creature state feedback (alert, hunting, sleeping)
 - [ ] Simple observation HUD (what does party know about visible creatures?)

@@ -24,6 +24,7 @@
 - [ ] Player detection trigger (line of sight, noise, collision)
 - [ ] ALERT state for creatures (heightened awareness when detecting player)
 - [ ] Detection feedback (visual alert icon or warning)
+- [ ] Selected creature highlight: show translucent detection radius ring on map
 
 ### Territorial System
 - [ ] Spawn zones defined in dungeon layout (zone types, not individual creatures)
@@ -53,6 +54,8 @@
 - [ ] Priming/Feeding: drop food in creature's sight to begin taming
 - [ ] Friendly state: after 3+ feedings, creature becomes non-hostile
 - [ ] Friendly creature benefits: safe observation, no attacks, spreads non-aggression
+- [ ] Trap map objects spawn as diamonds (not circles)
+- [ ] Trap color encodes target species (fixed palette)
 
 ### Movement & Sound System
 - [ ] Speed tiers: fast (noisy), medium (normal), slow (quiet)
@@ -69,6 +72,16 @@
 - [ ] Feeding duration timer (2-8 seconds by food type)
 - [ ] Food disappears after consumption
 - [ ] Visual rendering of carried food at creature's forward vertex
+- [ ] Ordered diet priorities per species (`dietPriorities`)
+- [ ] Predator-capable species include prey targets (`creature:<species>`) and optional `player`
+- [ ] Target selection uses first available entry in ordered priority list
+
+### Layout Marker Integration
+- [ ] Parse creature zone symbols: `r/s/g/m/o/b/w/k`
+- [ ] Parse food zone symbols: `F/N/M/I`
+- [ ] Parse trap zone symbols: `R/S/G/Y/O/B/W/K`
+- [ ] Keep `.` as item zone and `*` as artifact zone
+- [ ] Treat symbols as zone definitions, not fixed single-entity placements
 
 ### Player Interaction System - Object Actions
 - [x] Object click detection 
@@ -93,6 +106,8 @@
 ### Observation & Information
 - [ ] Creature state display when selected
 - [ ] Show food type information
+- [ ] Show ordered diet priorities in creature details
+- [ ] Show predator targets (including player, if configured) in creature details
 - [ ] Display zone/territory information
 - [ ] Info panel shows creature detection status
 - [ ] Visual indicator for friendly creatures
@@ -119,6 +134,9 @@
 - [ ] Test enraged creature behavior (aggressive, hunts player)
 - [ ] Verify food respawning in zones
 - [ ] Verify player cannot eat dangerous food (meat, hallucinogenic fungi)
+- [ ] Verify selected-creature detection ring matches configured detection radius
+- [ ] Verify predator species attack only configured prey species and player
+- [ ] Verify every trap diamond color matches its target species mapping
 
 ---
 
@@ -210,6 +228,22 @@
 
 ## Known Issues & Implementation Notes
 
+**Implementation Reference (for coding agent):**
+- Diet priorities (ordered):
+  - Rat: `food:fungi`, `food:organic_matter`, `food:insects`
+  - Spider: `food:insects`, `creature:rat`, `creature:bat`, `player`
+  - Goblin: `food:meat`, `food:organic_matter`, `creature:rat`, `player`
+  - Myconid: `food:organic_matter`, `food:fungi`
+  - Owl: `creature:rat`, `creature:bat`, `food:insects`, `player`
+  - Bat: `food:insects`, `food:fungi`
+  - Wolf: `creature:goblin`, `creature:rat`, `food:meat`, `player`
+  - Kobold: `food:meat`, `food:insects`, `food:organic_matter`, `creature:rat`
+- Trap color mapping by target species:
+  - Rat `#f4d03f`, Spider `#8e44ad`, Goblin `#2ecc71`, Myconid `#9b59b6`
+  - Owl `#f39c12`, Bat `#34495e`, Wolf `#5dade2`, Kobold `#e67e22`
+- Selected creature visualization: always render a translucent detection-radius ring while selected
+- Layout symbol mapping: `F/N/M/I` for food zones and `R/S/G/Y/O/B/W/K` for trap zones
+
 **Determinism:**
 - All creature behaviors seeded for consistency across playthroughs
 - Sleep variation per creature uses consistent PRNG
@@ -260,6 +294,3 @@
 7. Do creature conflicts create dramatic moments?
 8. Can player invent creative solutions beyond planned routes?
 9. Does the ecosystem feel "alive" and reactive?
-
-4. **Balance:** Is any single strategy obviously dominant (thus others useless)?
-5. **Determinism:** Do creatures follow consistent, predictable patterns across playthroughs?
