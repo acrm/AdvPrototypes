@@ -107,7 +107,9 @@ npm run bump:build -- --desc "Your change description"
 npm run bump:minor -- --desc "For breaking changes"
 ```
 
-The bump script synchronizes `version.json` and `package.json`, appends `build-notes.md`, runs `npm run build`, and creates the git commit automatically.
+Do not edit `version.json`, `build-notes.md`, or the `package.json` version field manually during normal work. Stage only your own changed files before running bump.
+
+The bump script synchronizes `version.json` and `package.json`, appends `build-notes.md`, runs `npm run build`, and creates the git commit automatically from your staged files plus bump metadata.
 
 ## Prototype Philosophy
 
@@ -127,7 +129,8 @@ MIT License - feel free to use and modify!
 
 1. Make your changes
 2. Update docs if behavior or workflow changed
-3. Run a bump command: `npm run bump:build -- --desc "..."`
-4. Push the commit created by the bump script and create a PR
+3. Stage only your own files: `git add <path...>`
+4. Run a bump command: `npm run bump:build -- --desc "..."`
+5. Push the commit created by the bump script and create a PR
 
 See [AI_AGENT_INSTRUCTIONS.md](./AI_AGENT_INSTRUCTIONS.md) for AI agent workflow guidelines.

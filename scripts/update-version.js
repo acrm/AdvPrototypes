@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
@@ -10,6 +10,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const versionFile = join(__dirname, '..', 'version.json');
 const packageFile = join(__dirname, '..', 'package.json');
 const buildNotesFile = join(__dirname, '..', 'build-notes.md');
+const metadataRepoPaths = ['version.json', 'package.json', 'build-notes.md'];
+const protectedMetadata = new Set(metadataRepoPaths);
 
 function getCurrentWeekCode() {
   const date = new Date();
@@ -27,6 +29,23 @@ function writeVersionFiles(versionContent, packageContent, buildNotesContent) {
   writeFileSync(versionFile, versionContent);
   writeFileSync(packageFile, packageContent);
   writeFileSync(buildNotesFile, buildNotesContent);
+}
+
+function restoreFile(filePath, content) {
+  if (content === null) {
+    if (existsSync(filePath)) {
+      unlinkSync(filePath);
+    }
+    return;
+  }
+
+  writeFileSync(filePath, content);
+}
+
+function restoreVersionFiles(versionContent, packageContent, buildNotesContent) {
+  restoreFile(versionFile, versionContent);
+  restoreFile(packageFile, packageContent);
+  restoreFile(buildNotesFile, buildNotesContent);
 }
 
 function sanitizeDescription(value) {
@@ -54,10 +73,58 @@ function runBuildVerification() {
   execFileSync('npm', ['run', 'build'], { stdio: 'inherit' });
 }
 
+function listGitPaths(args) {
+  const output = execFileSync('git', args, { encoding: 'utf8' }).trim();
+  if (!output) {
+    return [];
+  }
+
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/\\/g, '/'))
+    .filter(Boolean);
+}
+
+function containsProtectedMetadata(paths) {
+  return paths.filter((filePath) => protectedMetadata.has(filePath));
+}
+
+function failWithMessage(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+function resetMetadataIndex() {
+  execFileSync('git', ['reset', '-q', 'HEAD', '--', ...metadataRepoPaths], { stdio: 'ignore' });
+}
+
 const originalVersionContent = readFileSync(versionFile, 'utf8');
 const originalPackageContent = readFileSync(packageFile, 'utf8');
 const originalBuildNotesContent = readOptionalFile(buildNotesFile);
 const versionData = JSON.parse(originalVersionContent);
+
+const stagedBeforeBump = listGitPaths(['diff', '--name-only', '--cached']);
+const unstagedBeforeBump = listGitPaths(['diff', '--name-only']);
+
+if (stagedBeforeBump.length === 0) {
+  failWithMessage(
+    'No staged files found. Stage only your own changes first: git add <file1> <file2> ...',
+  );
+}
+
+const stagedProtectedFiles = containsProtectedMetadata(stagedBeforeBump);
+if (stagedProtectedFiles.length > 0) {
+  failWithMessage(
+    `Do not stage metadata files manually before bump: ${stagedProtectedFiles.join(', ')}`,
+  );
+}
+
+const unstagedProtectedFiles = containsProtectedMetadata(unstagedBeforeBump);
+if (unstagedProtectedFiles.length > 0) {
+  failWithMessage(
+    `Do not modify metadata files manually before bump: ${unstagedProtectedFiles.join(', ')}`,
+  );
+}
 
 const args = process.argv.slice(2);
 const isMinor = args.includes('--minor');
@@ -107,23 +174,19 @@ try {
   writeVersionFiles(nextVersionContent, nextPackageContent, nextBuildNotesContent);
 
   runBuildVerification();
-  execFileSync('git', ['add', '-A'], { stdio: 'inherit' });
+  execFileSync('git', ['add', '--', ...metadataRepoPaths], { stdio: 'inherit' });
   execFileSync('git', ['commit', '-m', commitMessage], { stdio: 'inherit' });
 
   console.log(`✓ Version bumped to ${newVersion}`);
   console.log(`✓ Commit created: ${commitMessage}`);
 } catch (error) {
-  writeVersionFiles(
-    originalVersionContent,
-    originalPackageContent,
-    originalBuildNotesContent ?? '# Build Notes\n',
-  );
-
   try {
-    execFileSync('git', ['add', versionFile, packageFile, buildNotesFile], { stdio: 'ignore' });
+    resetMetadataIndex();
   } catch {
-    // Ignore cleanup failures and preserve the original error path.
+    // Best effort cleanup; continue with file restoration.
   }
+
+  restoreVersionFiles(originalVersionContent, originalPackageContent, originalBuildNotesContent);
 
   if (error.message) {
     console.error(error.message);

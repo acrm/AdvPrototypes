@@ -17,8 +17,10 @@ After modifying any tracked file:
 1. Run exactly one bump command:
 	- `npm run bump:build -- --desc "Short English summary"`
 	- `npm run bump:minor -- --desc "Short English summary"`
-2. The bump script must sync `version.json` and `package.json`, append `build-notes.md`, run `npm run build`, and create the git commit automatically.
-3. Do not create a second manual commit after a successful bump.
+2. Never edit `version.json`, `build-notes.md`, or the `package.json` version field directly during normal work. Only the bump script may update them.
+3. Stage only your own changed files with explicit paths before bump. Do not use `git add -A` or `git add .`.
+4. The bump script must sync `version.json` and `package.json`, append `build-notes.md`, run `npm run build`, and create the git commit automatically from pre-staged files plus metadata.
+5. Do not create a second manual commit after a successful bump.
 
 ### Commands Reference
 
@@ -43,8 +45,19 @@ Keep docs in English, concise, and factual.
 
 1. Make code changes
 2. Update docs if behavior, UI, parameters, or flow changed
-3. Run one bump command
-4. Push the commit created by the bump script to GitHub
+3. Stage only your own files (explicit `git add <path...>`)
+4. Run one bump command
+5. Push the commit created by the bump script to GitHub
+
+## Multi-Agent Parallel Work
+
+- Multiple agents may work in parallel chats on the same repository state.
+- Each agent must commit only its own staged files plus bump metadata.
+- Never stage or commit unrelated modifications from other agents.
+
+## Bootstrap Placeholder Scope
+
+`src/components/BallGame.tsx` is a temporary bootstrap placeholder and is expected to be replaced early by project-specific functionality.
 
 ## File Locations to Know
 

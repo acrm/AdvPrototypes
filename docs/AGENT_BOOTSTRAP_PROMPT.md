@@ -14,6 +14,10 @@ Create a ready-to-run React + TypeScript + Vite repository for a simple interact
 4. Keep changes minimal and targeted.
 5. If a required file already exists, update it to match this contract instead of creating duplicates.
 6. After any tracked file change, finish by running exactly one bump command. The bump script must create the git commit automatically after successful verification. Do not create a second manual commit.
+7. Never edit `version.json`, `build-notes.md`, or the `package.json` version field directly during normal work. These files are updated only by `scripts/update-version.js`.
+8. In multi-agent flow, stage only your own files with explicit paths (for example `git add src/a.ts docs/b.md`). Never use `git add -A` or `git add .` before bump.
+9. The bump commit must include only pre-staged agent-owned files plus bump metadata files.
+10. The ball game is a bootstrap placeholder and should stay minimal; it is expected to be replaced early by the first real project request.
 
 ## Repository Contract
 
@@ -92,9 +96,10 @@ Create or update `scripts/update-version.js` so that it:
 8. Updates `package.json` field `version`.
 9. Appends `build-notes.md` with `- <version> — <description>`.
 10. Runs `npm run build`.
-11. If build succeeds, runs `git add -A` and creates a commit with message `<version>: <description>`.
+11. If build succeeds, stages only bump metadata files and creates a commit with message `<version>: <description>` from the already staged agent-owned files plus metadata.
 12. If build or commit fails, exits non-zero and does not leave a newly created commit behind.
 13. Prints the new version to stdout.
+14. Fails if `version.json`, `build-notes.md`, or the `package.json` version was modified or staged manually before bump.
 
 `package.json` scripts must call this file:
 
@@ -117,6 +122,8 @@ They must state that:
 - repository files are in English
 - after any tracked file change, the agent runs exactly one bump command
 - the bump script synchronizes `version.json` and `package.json`, appends `build-notes.md`, verifies the build, and creates the git commit automatically
+- metadata files (`version.json`, `build-notes.md`, `package.json` version) must not be edited directly during normal work
+- before bump, the agent stages only its own files and never uses blanket staging
 - the agent must not create a second manual commit after a successful bump
 - domain documentation must be updated in the same task when behavior, parameters, UI, or flows change
 
@@ -183,10 +190,28 @@ Perform these steps in order:
 3. Run `npm run typecheck`.
 4. Run `npm run lint`.
 5. Run `npm run build`.
-6. Run `npm run bump:build -- --desc "Initialize interactive ball game with AI agent workflow"`.
-7. Do not create a second manual commit. The bump script must already have created the commit.
-8. Push to `main` if credentials are available.
-9. Tell the user to enable GitHub Pages with Source = `GitHub Actions` if that step cannot be automated.
+6. Stage only your own non-metadata changes using explicit paths.
+7. Run `npm run bump:build -- --desc "Initialize interactive ball game with AI agent workflow"`.
+8. Do not create a second manual commit. The bump script must already have created the commit.
+9. Push to `main` if credentials are available.
+10. Tell the user to enable GitHub Pages with Source = `GitHub Actions` if that step cannot be automated.
+
+## Parallel Agent Workflow
+
+When multiple agents work in parallel chats on the same repository:
+
+- each agent stages only files it changed
+- each agent runs exactly one bump command for its own staged set
+- each bump commit must avoid unrelated unstaged changes from other agents
+- if non-fast-forward happens on push, sync with latest branch state (rebase/merge as team policy) and rerun bump only if new changes were made
+
+## Placeholder Scope
+
+The ball game is an initialization scaffold only.
+
+- keep it intentionally simple
+- avoid over-investing in game-specific architecture
+- expect immediate replacement by domain-specific functionality in the first follow-up tasks
 
 ## Acceptance Checklist
 
