@@ -104,7 +104,7 @@ export interface Party {
   targetPosition: Vector2 | null
   observedCreatures: Map<string, number> // id -> times observed
   direction: number // angle in radians
-  carriedItem: Food | Item | null // what party is carrying
+  carriedItem: Food | Item | Trap | null // what party is carrying
 }
 
 export interface GameMap {

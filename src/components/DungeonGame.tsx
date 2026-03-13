@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { GameState, Vector2, GameObject, Item, Food } from '../types/game'
+import { GameState, Vector2, GameObject, Item, Food, Trap } from '../types/game'
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, isPositionWalkable } from '../systems/Pathfinding'
 import { GAME_SETTINGS } from '../config/gameSettings'
@@ -20,7 +20,7 @@ const NPC_WAYPOINT_REACH_MULTIPLIER = GAME_SETTINGS.npc.waypointReachDistanceMul
 const NPC_BOUNDARY_PADDING = GAME_SETTINGS.npc.mapBoundaryPadding
 const [NPC_IDLE_TURN_MIN, NPC_IDLE_TURN_MAX] = GAME_SETTINGS.npc.idleTurnIntervalRange
 
-type Carryable = Item | Food
+type Carryable = Item | Food | Trap
 
 export const DungeonGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -50,10 +50,11 @@ export const DungeonGame: React.FC = () => {
   const findNearbyCarryable = (
     items: Item[],
     foodList: Food[],
+    traps: Trap[],
     position: Vector2,
     radius: number
   ): Carryable | null => {
-    const carryables: Carryable[] = [...items, ...foodList]
+    const carryables: Carryable[] = [...items, ...foodList, ...traps]
     let nearest: Carryable | null = null
     let nearestDistance = Number.POSITIVE_INFINITY
 
@@ -86,12 +87,17 @@ export const DungeonGame: React.FC = () => {
         ? state.map.food.filter((existingFood) => existingFood.id !== carryable.id)
         : state.map.food
 
+      const nextTraps = carryable.type === 'trap'
+        ? state.map.traps.filter((existingTrap) => existingTrap.id !== carryable.id)
+        : state.map.traps
+
       return {
         ...state,
         map: {
           ...state.map,
           items: nextItems,
           food: nextFood,
+          traps: nextTraps,
         },
         party: {
           ...state.party,
@@ -163,6 +169,27 @@ export const DungeonGame: React.FC = () => {
       }
     }
 
+    if (state.party.carriedItem.type === 'trap') {
+      const droppedTrap: Trap = {
+        ...state.party.carriedItem,
+        type: 'trap',
+        position: dropPosition,
+      }
+
+      return {
+        ...state,
+        map: {
+          ...state.map,
+          traps: [...state.map.traps, droppedTrap],
+        },
+        party: {
+          ...state.party,
+          carriedItem: null,
+        },
+        selectedObject: droppedTrap,
+      }
+    }
+
     const droppedItem: Item = {
       ...state.party.carriedItem,
       type: 'item',
@@ -225,6 +252,7 @@ export const DungeonGame: React.FC = () => {
             const nearbyCarryable = findNearbyCarryable(
               prev.map.items,
               prev.map.food,
+              prev.map.traps,
               targetPosition,
               PLAYER_PICKUP_RADIUS
             )
@@ -238,6 +266,9 @@ export const DungeonGame: React.FC = () => {
                 food: nearbyCarryable.type === 'food'
                   ? prev.map.food.filter((food) => food.id !== nearbyCarryable.id)
                   : prev.map.food,
+                traps: nearbyCarryable.type === 'trap'
+                  ? prev.map.traps.filter((trap) => trap.id !== nearbyCarryable.id)
+                  : prev.map.traps,
               }
               carriedItem = nearbyCarryable
             }
@@ -513,13 +544,18 @@ export const DungeonGame: React.FC = () => {
 
   const handlePickUpSelected = useCallback(() => {
     setGameState((prev) => {
-      if (!prev.selectedObject || (prev.selectedObject.type !== 'item' && prev.selectedObject.type !== 'food')) {
+      if (
+        !prev.selectedObject ||
+        (prev.selectedObject.type !== 'item' && prev.selectedObject.type !== 'food' && prev.selectedObject.type !== 'trap')
+      ) {
         return prev
       }
 
       const selectedCarryable = prev.selectedObject.type === 'item'
         ? prev.map.items.find((item) => item.id === prev.selectedObject?.id)
-        : prev.map.food.find((food) => food.id === prev.selectedObject?.id)
+        : prev.selectedObject.type === 'food'
+          ? prev.map.food.find((food) => food.id === prev.selectedObject?.id)
+          : prev.map.traps.find((trap) => trap.id === prev.selectedObject?.id)
 
       if (!selectedCarryable) {
         return prev
@@ -553,7 +589,11 @@ export const DungeonGame: React.FC = () => {
         party={gameState.party}
         cycleTime={gameState.cycleTime}
         canPickUpSelected={
-          (gameState.selectedObject?.type === 'item' || gameState.selectedObject?.type === 'food') &&
+          (
+            gameState.selectedObject?.type === 'item' ||
+            gameState.selectedObject?.type === 'food' ||
+            gameState.selectedObject?.type === 'trap'
+          ) &&
           !gameState.party.carriedItem
         }
         canDropCarried={Boolean(gameState.party.carriedItem)}

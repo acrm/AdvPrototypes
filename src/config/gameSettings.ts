@@ -5,7 +5,7 @@ type RangeTuple = [number, number]
 export const GAME_SETTINGS = {
   world: {
     navigationCellSize: 50,
-    layoutRegionScale: 3,
+    layoutRegionScale: 5,
     viewportWidth: 1200,
     viewportHeight: 800,
     partyStartLayoutCell: {

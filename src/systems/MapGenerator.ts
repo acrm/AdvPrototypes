@@ -13,7 +13,7 @@ import {
   Vector2,
 } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
-import { GRID_SIZE, LAYOUT_REGION_SIZE } from './Pathfinding'
+import { GRID_SIZE, isPositionWalkable, LAYOUT_REGION_SIZE } from './Pathfinding'
 import { DUNGEON_LAYOUT, GRID_COLS, GRID_ROWS } from '../data/dungeonLayout'
 
 const DEFAULT_CYCLE_TIME = GAME_SETTINGS.cycle.initialCycleTime
@@ -22,6 +22,16 @@ const CREATURE_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.creat
 const FOOD_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.food
 const TRAP_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.trap
 const DEFAULT_TRAP_TRIGGER_RADIUS = GAME_SETTINGS.spawn.defaultTrapTriggerRadius
+const CHUNK_CELL_COUNT = GAME_SETTINGS.world.layoutRegionScale
+const WALL_COLOR = '#4A3F35'
+
+type ChunkMask = boolean[][]
+type ChunkOpenSides = {
+  north: boolean
+  east: boolean
+  south: boolean
+  west: boolean
+}
 
 // Convert layout coordinates to world position (center of a large region).
 function layoutToWorld(layoutX: number, layoutY: number): Vector2 {
@@ -51,25 +61,322 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-function getZoneCandidatePositions(zone: SpawnZone): Vector2[] {
-  const left = zone.position.x - zone.width / 2
-  const top = zone.position.y - zone.height / 2
+function getChunkSymbol(layoutLines: string[], row: number, col: number): string {
+  if (row < 0 || row >= layoutLines.length) {
+    return '#'
+  }
+
+  if (col < 0 || col >= layoutLines[row].length) {
+    return '#'
+  }
+
+  return layoutLines[row][col]
+}
+
+function isOpenChunk(layoutLines: string[], row: number, col: number): boolean {
+  return getChunkSymbol(layoutLines, row, col) !== '#'
+}
+
+function createChunkMask(defaultBlocked: boolean): ChunkMask {
+  return Array.from({ length: CHUNK_CELL_COUNT }, () => Array(CHUNK_CELL_COUNT).fill(defaultBlocked))
+}
+
+function setMaskCells(mask: ChunkMask, cells: Array<[number, number]>, blocked: boolean) {
+  for (const [row, col] of cells) {
+    if (row < 0 || row >= CHUNK_CELL_COUNT || col < 0 || col >= CHUNK_CELL_COUNT) {
+      continue
+    }
+
+    mask[row][col] = blocked
+  }
+}
+
+function getChunkOpenSides(layoutLines: string[], row: number, col: number): ChunkOpenSides {
+  return {
+    north: isOpenChunk(layoutLines, row - 1, col),
+    east: isOpenChunk(layoutLines, row, col + 1),
+    south: isOpenChunk(layoutLines, row + 1, col),
+    west: isOpenChunk(layoutLines, row, col - 1),
+  }
+}
+
+function getChunkVariantBit(row: number, col: number, salt: number): number {
+  const value = (row + 1) * 92821 + (col + 1) * 68917 + salt * 1237
+  return Math.abs(value) % 2
+}
+
+function repairDiagonalPassages(mask: ChunkMask) {
+  for (let row = 0; row < CHUNK_CELL_COUNT - 1; row++) {
+    for (let col = 0; col < CHUNK_CELL_COUNT - 1; col++) {
+      const topLeftOpen = !mask[row][col]
+      const topRightOpen = !mask[row][col + 1]
+      const bottomLeftOpen = !mask[row + 1][col]
+      const bottomRightOpen = !mask[row + 1][col + 1]
+
+      if (topLeftOpen && bottomRightOpen && (mask[row][col + 1] || mask[row + 1][col])) {
+        mask[row][col + 1] = false
+        mask[row + 1][col] = false
+      }
+
+      if (topRightOpen && bottomLeftOpen && (mask[row][col] || mask[row + 1][col + 1])) {
+        mask[row][col] = false
+        mask[row + 1][col + 1] = false
+      }
+    }
+  }
+}
+
+function getOpenSideConnectors(openSides: ChunkOpenSides): Array<[number, number]> {
+  const connectors: Array<[number, number]> = []
+
+  if (openSides.north) connectors.push([0, 2])
+  if (openSides.east) connectors.push([2, CHUNK_CELL_COUNT - 1])
+  if (openSides.south) connectors.push([CHUNK_CELL_COUNT - 1, 2])
+  if (openSides.west) connectors.push([2, 0])
+
+  return connectors
+}
+
+function areOpenSideConnectorsConnected(mask: ChunkMask, openSides: ChunkOpenSides): boolean {
+  const connectors = getOpenSideConnectors(openSides)
+  if (connectors.length <= 1) {
+    return true
+  }
+
+  const [startRow, startCol] = connectors[0]
+  const queue: Array<[number, number]> = [[startRow, startCol]]
+  const visited = new Set<string>([`${startRow},${startCol}`])
+  const directions = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+    [-1, -1],
+    [-1, 1],
+    [1, -1],
+    [1, 1],
+  ] as const
+
+  while (queue.length > 0) {
+    const [row, col] = queue.shift()!
+
+    for (const [dy, dx] of directions) {
+      const nextRow = row + dy
+      const nextCol = col + dx
+
+      if (nextRow < 0 || nextRow >= CHUNK_CELL_COUNT || nextCol < 0 || nextCol >= CHUNK_CELL_COUNT) {
+        continue
+      }
+
+      if (mask[nextRow][nextCol]) {
+        continue
+      }
+
+      if (dy !== 0 && dx !== 0) {
+        if (mask[row][nextCol] || mask[nextRow][col]) {
+          continue
+        }
+      }
+
+      const key = `${nextRow},${nextCol}`
+      if (visited.has(key)) {
+        continue
+      }
+
+      visited.add(key)
+      queue.push([nextRow, nextCol])
+    }
+  }
+
+  return connectors.every(([row, col]) => visited.has(`${row},${col}`))
+}
+
+function createFallbackOpenChunkMask(openSides: ChunkOpenSides): ChunkMask {
+  const mask = createChunkMask(false)
+  const openSideCount = Object.values(openSides).filter(Boolean).length
+
+  if (openSideCount > 2) {
+    mask[2][2] = true
+  }
+
+  return mask
+}
+
+function createWallChunkMask(layoutLines: string[], row: number, col: number): ChunkMask {
+  const mask = createChunkMask(true)
+  const openSides = getChunkOpenSides(layoutLines, row, col)
+
+  if (openSides.north) {
+    setMaskCells(mask, [[0, 1], [0, 2], [0, 3], [1, 1], [1, 3]], false)
+  }
+  if (openSides.south) {
+    setMaskCells(mask, [[4, 1], [4, 2], [4, 3], [3, 1], [3, 3]], false)
+  }
+  if (openSides.west) {
+    setMaskCells(mask, [[1, 0], [2, 0], [3, 0], [1, 1], [3, 1]], false)
+  }
+  if (openSides.east) {
+    setMaskCells(mask, [[1, 4], [2, 4], [3, 4], [1, 3], [3, 3]], false)
+  }
+
+  if (openSides.north && openSides.west) setMaskCells(mask, [[0, 0]], false)
+  if (openSides.north && openSides.east) setMaskCells(mask, [[0, 4]], false)
+  if (openSides.south && openSides.west) setMaskCells(mask, [[4, 0]], false)
+  if (openSides.south && openSides.east) setMaskCells(mask, [[4, 4]], false)
+
+  setMaskCells(mask, [[1, 2], [2, 1], [2, 2], [2, 3], [3, 2]], true)
+  return mask
+}
+
+function createOpenChunkMask(layoutLines: string[], row: number, col: number): ChunkMask {
+  const mask = createChunkMask(false)
+  const openSides = getChunkOpenSides(layoutLines, row, col)
+  const openSideCount = Object.values(openSides).filter(Boolean).length
+
+  if (!openSides.north) {
+    setMaskCells(mask, [[0, 1], [0, 2], [0, 3]], true)
+    setMaskCells(mask, getChunkVariantBit(row, col, 1) === 0 ? [[1, 1]] : [[1, 3]], true)
+  }
+
+  if (!openSides.south) {
+    setMaskCells(mask, [[4, 1], [4, 2], [4, 3]], true)
+    setMaskCells(mask, getChunkVariantBit(row, col, 2) === 0 ? [[3, 1]] : [[3, 3]], true)
+  }
+
+  if (!openSides.west) {
+    setMaskCells(mask, [[1, 0], [2, 0], [3, 0]], true)
+    setMaskCells(mask, getChunkVariantBit(row, col, 3) === 0 ? [[1, 1]] : [[3, 1]], true)
+  }
+
+  if (!openSides.east) {
+    setMaskCells(mask, [[1, 4], [2, 4], [3, 4]], true)
+    setMaskCells(mask, getChunkVariantBit(row, col, 4) === 0 ? [[1, 3]] : [[3, 3]], true)
+  }
+
+  if (openSideCount > 2) {
+    setMaskCells(mask, [[2, 2]], true)
+  }
+
+  if (openSides.north) setMaskCells(mask, [[0, 2], [1, 2]], false)
+  if (openSides.south) setMaskCells(mask, [[4, 2], [3, 2]], false)
+  if (openSides.west) setMaskCells(mask, [[2, 0], [2, 1]], false)
+  if (openSides.east) setMaskCells(mask, [[2, 4], [2, 3]], false)
+
+  repairDiagonalPassages(mask)
+
+  if (!areOpenSideConnectorsConnected(mask, openSides)) {
+    return createFallbackOpenChunkMask(openSides)
+  }
+
+  return mask
+}
+
+function createChunkMaskForSymbol(layoutLines: string[], row: number, col: number): ChunkMask {
+  if (getChunkSymbol(layoutLines, row, col) === '#') {
+    return createWallChunkMask(layoutLines, row, col)
+  }
+
+  return createOpenChunkMask(layoutLines, row, col)
+}
+
+function createObstacleObjectsFromChunk(layoutRow: number, layoutCol: number, mask: ChunkMask): GameMap['objects'] {
+  const objects: GameMap['objects'] = []
+  const left = layoutCol * LAYOUT_REGION_SIZE
+  const top = layoutRow * LAYOUT_REGION_SIZE
+
+  for (let row = 0; row < CHUNK_CELL_COUNT; row++) {
+    for (let col = 0; col < CHUNK_CELL_COUNT; col++) {
+      if (!mask[row][col]) {
+        continue
+      }
+
+      objects.push({
+        id: `wall_${layoutCol}_${layoutRow}_${col}_${row}`,
+        type: 'obstacle',
+        position: {
+          x: left + col * GRID_SIZE + GRID_SIZE / 2,
+          y: top + row * GRID_SIZE + GRID_SIZE / 2,
+        },
+        width: GRID_SIZE,
+        height: GRID_SIZE,
+        color: WALL_COLOR,
+        name: 'Stone Wall',
+        description: 'Solid dungeon wall made of ancient stone.',
+        sourceSpawnZoneId: null,
+      })
+    }
+  }
+
+  return objects
+}
+
+function buildDungeonObstacles(layoutLines: string[]): GameMap['objects'] {
+  const objects: GameMap['objects'] = []
+
+  for (let row = 0; row < layoutLines.length; row++) {
+    const line = layoutLines[row]
+    for (let col = 0; col < line.length; col++) {
+      const mask = createChunkMaskForSymbol(layoutLines, row, col)
+      objects.push(...createObstacleObjectsFromChunk(row, col, mask))
+    }
+  }
+
+  return objects
+}
+
+function getWalkablePositionsInChunk(position: Vector2, obstacles: GameMap['objects']): Vector2[] {
+  const left = position.x - LAYOUT_REGION_SIZE / 2
+  const top = position.y - LAYOUT_REGION_SIZE / 2
   const positions: Vector2[] = []
 
-  for (let row = 0; row < GAME_SETTINGS.world.layoutRegionScale; row++) {
-    for (let col = 0; col < GAME_SETTINGS.world.layoutRegionScale; col++) {
-      positions.push({
+  for (let row = 0; row < CHUNK_CELL_COUNT; row++) {
+    for (let col = 0; col < CHUNK_CELL_COUNT; col++) {
+      const candidate = {
         x: left + GRID_SIZE / 2 + col * GRID_SIZE,
         y: top + GRID_SIZE / 2 + row * GRID_SIZE,
-      })
+      }
+
+      if (isPositionWalkable(candidate, obstacles)) {
+        positions.push(candidate)
+      }
     }
   }
 
   return positions
 }
 
-function getRandomPositionInZone(zone: SpawnZone): Vector2 {
-  const candidates = getZoneCandidatePositions(zone)
+function getZoneCandidatePositions(zone: SpawnZone, obstacles: GameMap['objects']): Vector2[] {
+  return getWalkablePositionsInChunk(zone.position, obstacles)
+}
+
+function getPreferredChunkPosition(position: Vector2, obstacles: GameMap['objects']): Vector2 {
+  const candidates = getWalkablePositionsInChunk(position, obstacles)
+  if (candidates.length === 0) {
+    return position
+  }
+
+  let closest = candidates[0]
+  let closestDistance = Number.POSITIVE_INFINITY
+
+  for (const candidate of candidates) {
+    const dx = candidate.x - position.x
+    const dy = candidate.y - position.y
+    const distance = dx * dx + dy * dy
+    if (distance < closestDistance) {
+      closest = candidate
+      closestDistance = distance
+    }
+  }
+
+  return closest
+}
+
+function getRandomPositionInZone(zone: SpawnZone, obstacles: GameMap['objects']): Vector2 {
+  const candidates = getZoneCandidatePositions(zone, obstacles)
+  if (candidates.length === 0) {
+    return zone.position
+  }
+
   return candidates[Math.floor(Math.random() * candidates.length)]
 }
 
@@ -340,13 +647,13 @@ function getTrapTargetFromSymbol(symbol: string): CreatureSpecies | null {
   return TRAP_SYMBOL_TO_TARGET[symbol] ?? null
 }
 
-function createCreatureFromZone(zone: SpawnZone, cycleTime: number, gameTime: number = 0): Creature {
+function createCreatureFromZone(zone: SpawnZone, obstacles: GameMap['objects'], cycleTime: number, gameTime: number = 0): Creature {
   if (!zone.creatureSpecies) {
     throw new Error(`Spawn zone ${zone.id} does not define a creature species.`)
   }
 
   const template = CREATURE_TEMPLATES[zone.creatureSpecies]
-  const position = getRandomPositionInZone(zone)
+  const position = getRandomPositionInZone(zone, obstacles)
   const sleepSchedule = generateSleepSchedule(template.isNocturnal)
   const nextSpawnCount = zone.spawnCount + 1
   const speed = getRandomFloat(template.speedRange[0], template.speedRange[1])
@@ -378,12 +685,12 @@ function createCreatureFromZone(zone: SpawnZone, cycleTime: number, gameTime: nu
   }
 }
 
-function createFoodFromZone(zone: SpawnZone): Food {
+function createFoodFromZone(zone: SpawnZone, obstacles: GameMap['objects']): Food {
   if (!zone.foodType) {
     throw new Error(`Spawn zone ${zone.id} does not define food type.`)
   }
 
-  const position = getRandomPositionInZone(zone)
+  const position = getRandomPositionInZone(zone, obstacles)
   const nextSpawnCount = zone.spawnCount + 1
   const template = FOOD_TEMPLATES[zone.foodType]
 
@@ -402,12 +709,12 @@ function createFoodFromZone(zone: SpawnZone): Food {
   }
 }
 
-function createTrapFromZone(zone: SpawnZone): Trap {
+function createTrapFromZone(zone: SpawnZone, obstacles: GameMap['objects']): Trap {
   if (!zone.trapTargetSpecies) {
     throw new Error(`Spawn zone ${zone.id} does not define trap target species.`)
   }
 
-  const position = getRandomPositionInZone(zone)
+  const position = getRandomPositionInZone(zone, obstacles)
   const nextSpawnCount = zone.spawnCount + 1
   const trapColor = GAME_SETTINGS.spawn.trapColorsByTargetSpecies[zone.trapTargetSpecies]
   const targetName = CREATURE_TEMPLATES[zone.trapTargetSpecies].name
@@ -427,12 +734,12 @@ function createTrapFromZone(zone: SpawnZone): Trap {
   }
 }
 
-function createItemFromZone(zone: SpawnZone): Item {
+function createItemFromZone(zone: SpawnZone, obstacles: GameMap['objects']): Item {
   if (!zone.itemTemplate) {
     throw new Error(`Spawn zone ${zone.id} does not define an item template.`)
   }
 
-  const position = getRandomPositionInZone(zone)
+  const position = getRandomPositionInZone(zone, obstacles)
   const nextSpawnCount = zone.spawnCount + 1
 
   switch (zone.itemTemplate) {
@@ -475,8 +782,8 @@ function createItemFromZone(zone: SpawnZone): Item {
   }
 }
 
-function createArtifactFromZone(zone: SpawnZone): Artifact {
-  const position = getRandomPositionInZone(zone)
+function createArtifactFromZone(zone: SpawnZone, obstacles: GameMap['objects']): Artifact {
+  const position = getRandomPositionInZone(zone, obstacles)
   const nextSpawnCount = zone.spawnCount + 1
 
   return {
@@ -494,7 +801,7 @@ function createArtifactFromZone(zone: SpawnZone): Artifact {
 
 function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: number): SpawnZone {
   if (zone.spawnKind === 'creature') {
-    const creature = createCreatureFromZone(zone, cycleTime, 0)
+    const creature = createCreatureFromZone(zone, map.objects, cycleTime, 0)
     map.creatures.push(creature)
     return {
       ...zone,
@@ -504,7 +811,7 @@ function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: numbe
   }
 
   if (zone.spawnKind === 'item') {
-    const item = createItemFromZone(zone)
+    const item = createItemFromZone(zone, map.objects)
     map.items.push(item)
     return {
       ...zone,
@@ -514,7 +821,7 @@ function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: numbe
   }
 
   if (zone.spawnKind === 'food') {
-    const food = createFoodFromZone(zone)
+    const food = createFoodFromZone(zone, map.objects)
     map.food.push(food)
     return {
       ...zone,
@@ -524,7 +831,7 @@ function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: numbe
   }
 
   if (zone.spawnKind === 'trap') {
-    const trap = createTrapFromZone(zone)
+    const trap = createTrapFromZone(zone, map.objects)
     map.traps.push(trap)
     return {
       ...zone,
@@ -533,7 +840,7 @@ function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: numbe
     }
   }
 
-  const artifact = createArtifactFromZone(zone)
+  const artifact = createArtifactFromZone(zone, map.objects)
   map.artifact = artifact
   return {
     ...zone,
@@ -569,11 +876,12 @@ function createSpawnZoneBase(
 }
 
 export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
+  const lines = DUNGEON_LAYOUT.split('\n').filter((line) => line.length > 0)
   const map: GameMap = {
     width: GRID_COLS * LAYOUT_REGION_SIZE,
     height: GRID_ROWS * LAYOUT_REGION_SIZE,
     layoutCellSize: LAYOUT_REGION_SIZE,
-    objects: [],
+    objects: buildDungeonObstacles(lines),
     creatures: [],
     items: [],
     food: [],
@@ -595,12 +903,13 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
     },
   }
 
-  let partyStartPosition: Vector2 = layoutToWorld(
-    GAME_SETTINGS.world.partyStartLayoutCell.x,
-    GAME_SETTINGS.world.partyStartLayoutCell.y
+  let partyStartPosition: Vector2 = getPreferredChunkPosition(
+    layoutToWorld(
+      GAME_SETTINGS.world.partyStartLayoutCell.x,
+      GAME_SETTINGS.world.partyStartLayoutCell.y
+    ),
+    map.objects
   )
-  const wallColor = '#4A3F35'
-  const lines = DUNGEON_LAYOUT.split('\n').filter((line) => line.length > 0)
 
   let itemZoneCount = 0
   let artifactZoneCount = 0
@@ -613,22 +922,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
       const position = layoutToWorld(col, row)
 
       if (symbol === '#') {
-        map.objects.push({
-          id: `wall_${col}_${row}`,
-          type: 'obstacle',
-          position,
-          width: LAYOUT_REGION_SIZE,
-          height: LAYOUT_REGION_SIZE,
-          color: wallColor,
-          name: 'Stone Wall',
-          description: 'Solid dungeon wall made of ancient stone.',
-          sourceSpawnZoneId: null,
-        })
         continue
       }
 
       if (symbol === 'P') {
-        partyStartPosition = position
+        partyStartPosition = getPreferredChunkPosition(position, map.objects)
         continue
       }
 
@@ -742,7 +1040,7 @@ export function refreshSpawnZones(
   map: GameMap,
   gameTime: number,
   cycleTime: number,
-  carriedItem: Item | Food | null
+  carriedItem: Item | Food | Trap | null
 ): GameMap {
   const presentIds = new Set<string>()
 
@@ -799,7 +1097,7 @@ export function refreshSpawnZones(
     }
 
     if (zoneCopy.spawnKind === 'creature') {
-      const creature = createCreatureFromZone(zoneCopy, cycleTime, gameTime)
+      const creature = createCreatureFromZone(zoneCopy, nextMap.objects, cycleTime, gameTime)
       nextMap.creatures.push(creature)
       zoneCopy.activeEntityId = creature.id
       zoneCopy.spawnCount += 1
@@ -808,7 +1106,7 @@ export function refreshSpawnZones(
     }
 
     if (zoneCopy.spawnKind === 'item') {
-      const item = createItemFromZone(zoneCopy)
+      const item = createItemFromZone(zoneCopy, nextMap.objects)
       nextMap.items.push(item)
       zoneCopy.activeEntityId = item.id
       zoneCopy.spawnCount += 1
@@ -817,7 +1115,7 @@ export function refreshSpawnZones(
     }
 
     if (zoneCopy.spawnKind === 'food') {
-      const food = createFoodFromZone(zoneCopy)
+      const food = createFoodFromZone(zoneCopy, nextMap.objects)
       nextMap.food.push(food)
       zoneCopy.activeEntityId = food.id
       zoneCopy.spawnCount += 1
@@ -826,7 +1124,7 @@ export function refreshSpawnZones(
     }
 
     if (zoneCopy.spawnKind === 'trap') {
-      const trap = createTrapFromZone(zoneCopy)
+      const trap = createTrapFromZone(zoneCopy, nextMap.objects)
       nextMap.traps.push(trap)
       zoneCopy.activeEntityId = trap.id
       zoneCopy.spawnCount += 1

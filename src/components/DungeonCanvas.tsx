@@ -165,10 +165,14 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
         y: gameState.party.position.y + Math.sin(gameState.party.direction) * carryDistance,
       }
 
-      ctx.fillStyle = gameState.party.carriedItem.color
-      ctx.beginPath()
-      ctx.arc(carryPosition.x, carryPosition.y, 5, 0, Math.PI * 2)
-      ctx.fill()
+      if (gameState.party.carriedItem.type === 'trap') {
+        drawDiamond(ctx, carryPosition, gameState.party.carriedItem.color, 6)
+      } else {
+        ctx.fillStyle = gameState.party.carriedItem.color
+        ctx.beginPath()
+        ctx.arc(carryPosition.x, carryPosition.y, 5, 0, Math.PI * 2)
+        ctx.fill()
+      }
     }
 
     ctx.restore()

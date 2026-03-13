@@ -1,8 +1,8 @@
-// DUNGEON LAYOUT MAP - 24x16 large regions (3600x2400 world, 150px per symbol)
+// DUNGEON LAYOUT MAP - 24x16 chunk regions (6000x4000 world, 250px per symbol)
 // 
 // LEGEND:
-// # - Wall region (impassable 150x150 block)
-// P - Party start region (entity keeps original size inside the region)
+// # - Wall chunk category (resolved into a 5x5 micro-grid)
+// P - Party start chunk (entity keeps original size inside the generated chunk)
 // r - Rat spawn region
 // s - Spider spawn region
 // g - Goblin spawn region
@@ -25,7 +25,7 @@
 // K - Trap spawn region targeting kobolds
 // * - Artifact spawn region
 // . - Item spawn region
-//   - Empty walkable region
+//   - Empty walkable chunk category
 
 export const DUNGEON_LAYOUT = `########################
 #...rFN  #  I   s R .  #
