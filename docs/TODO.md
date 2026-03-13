@@ -61,6 +61,7 @@
 ### Trapping & Domestication Mechanics
 - [ ] Trap item type (player can carry and place)
 - [ ] Trap placement UI action
+- [ ] Spawned traps are portable until armed
 - [ ] Trap detection by creatures (triggered on collision)
 - [ ] Trapped creature state: immobilized 10-15 seconds
 - [ ] Enraged state: creature becomes hostile to player specifically after escaping trap
@@ -93,7 +94,9 @@
 - [x] Parse creature zone symbols: `r/s/g/m/o/b/w/k`
 - [x] Parse food zone symbols: `F/N/M/I`
 - [x] Parse trap zone symbols: `R/S/G/Y/O/B/W/K`
-- [x] Keep `.` as item zone and `*` as artifact zone
+- [ ] Parse `*` as player start and extraction zone
+- [ ] Parse `A` as artifact zone
+- [x] Keep `.` as item zone
 - [x] Treat symbols as zone definitions, not fixed single-entity placements
 - [ ] Attach chunk generator to zone map before spawn placement
 - [ ] Ensure spawn placement respects blocked cells inside generated chunks
@@ -102,6 +105,8 @@
 - [x] Object click detection 
 - [x] "Pick Up" action for food items
 - [x] "Drop" action for carrying items
+- [ ] "Pick Up" action for traps and artifact
+- [ ] "Drop" action for traps and artifact
 - [x] "Examine" action for objects
 - [x] Party inventory (one item max)
 - [x] Visual feedback for held items at party direction
@@ -131,8 +136,10 @@
 
 ### Artifact & Objective
 - [ ] Owlbear lair location with artifact
-- [ ] Win condition: have artifact + reach entrance
-- [ ] Entrance location clearly marked
+- [ ] Artifact is portable and uses the standard carry slot
+- [ ] Win condition: carry artifact to `*` extraction zone
+- [ ] Player start/extraction location clearly marked by `*`
+- [ ] Artifact chamber location clearly marked by `A`
 - [ ] Clear path possibility to artifact despite dangers
 - [ ] Creature placement creates strategic challenge
 
@@ -152,6 +159,10 @@
 - [ ] Verify selected-creature detection ring matches configured detection radius
 - [ ] Verify predator species attack only configured prey species and player
 - [ ] Verify every trap diamond color matches its target species mapping
+- [ ] Verify traps can be picked up, relocated, and armed after relocation
+- [ ] Verify artifact can be picked up, dropped, and recovered
+- [ ] Verify level completion triggers only when artifact reaches `*`
+- [ ] Verify `*` and `A` layout markers are parsed distinctly
 - [ ] Verify every wall chunk keeps an impassable connected core
 - [ ] Verify every open chunk connects all of its open sides through valid micro-paths
 - [ ] Verify diagonal traversal remains legal in generated chunk interiors
@@ -270,7 +281,8 @@
   - Rat `#f4d03f`, Spider `#8e44ad`, Goblin `#2ecc71`, Myconid `#9b59b6`
   - Owl `#f39c12`, Bat `#34495e`, Wolf `#5dade2`, Kobold `#e67e22`
 - Selected creature visualization: always render a translucent detection-radius ring while selected
-- Layout symbol mapping: `F/N/M/I` for food zones and `R/S/G/Y/O/B/W/K` for trap zones
+- Layout symbol mapping: `*` for player start/extraction, `A` for artifact zone, `F/N/M/I` for food zones, and `R/S/G/Y/O/B/W/K` for trap zones
+- Portable-object rule: traps and artifact are portable and use the same single carry slot as other carried objects
 
 **Determinism:**
 - All creature behaviors seeded for consistency across playthroughs

@@ -27,24 +27,25 @@
 
 ### Spawn Regions & Respawn
 
-- **Symbol semantics:** Non-wall symbols are spawn regions rather than fixed single-tile placements
-- **Initial spawn:** At the start of a run, the associated creature, item, or artifact appears somewhere inside its marked region
+- **Symbol semantics:** Most non-wall symbols are spawn regions rather than fixed single-tile placements; the player start marker is a special-case chunk marker
+- **Initial spawn:** At the start of a run, the associated creature, item, trap, or artifact appears somewhere inside its marked region
 - **Persistence after movement:** Once spawned, the entity can move freely through the dungeon or be carried away by the party
 - **Respawn rule:** If a spawned entity is removed from play entirely, a replacement appears in its original region after a cooldown
 - **Current cooldowns:** Food and items return faster than creatures; traps respawn on a medium timer; artifact and party start regions do not auto-respawn
 
 **Authoritative Layout Symbols (for implementer):**
 - `#` = Wall region (impassable)
-- `P` = Party start region
+- `*` = Party start and extraction region
+- `A` = Artifact spawn region
 - `r/s/g/m/o/b/w/k` = Creature spawn regions by species (rat, spider, goblin, myconid, owl, bat, wolf, kobold)
 - `F/N/M/I` = Food spawn regions (`fungi`, `organic_matter`, `meat`, `insects`)
 - `R/S/G/Y/O/B/W/K` = Trap spawn regions targeted by species (rat, spider, goblin, myconid, owl, bat, wolf, kobold)
 - `.` = Generic item spawn region
-- `*` = Artifact spawn region
 
 **Spawn Region Rule:**
 - Layout letters define zone type and spawn source, not fixed permanent coordinates of one entity.
 - Multiple entities can exist over time from one region due to respawn.
+- The `*` chunk is the player's fixed start point and also the extraction point for finishing the level.
 
 ### Chunk-Based Dungeon Generation
 
@@ -280,12 +281,13 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 ### Player Interaction with Objects
 
 **Item Interaction System:**
-- Left click on an item selects it in the info panel and does not move the party
-- `[PICK UP]` in the info panel makes the party approach the selected item and pick it up when within pickup radius
-- `[DROP]` places the carried item at party position (or nearby clicked ground when valid)
+- Left click on a portable object selects it in the info panel and does not move the party
+- Portable objects include generic items, food, traps, and the artifact
+- `[PICK UP]` in the info panel makes the party approach the selected portable object and pick it up when within pickup radius
+- `[DROP]` places the carried portable object at party position (or nearby clicked ground when valid)
 - **Info panel action buttons:**
-   - `[PICK UP]` - approaches currently selected item and picks it up when in range
-   - `[DROP]` - drops currently carried item at party position
+   - `[PICK UP]` - approaches currently selected portable object and picks it up when in range
+   - `[DROP]` - drops the currently carried portable object at party position
   - `[Set Trap]` - Place at location, arms after 2 seconds
   - `[Disarm]` - Remove armed trap
   - `[Examine]` - Learn details
@@ -293,7 +295,8 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 **Party Inventory:**
 - Party can carry ONE item at a time
 - Carrying item displays visually at party's forward-facing direction
-- Types of items: Food, Traps, Equipment
+- Portable object classes: Food, Traps, Artifact, Equipment
+- Carrying the artifact or a trap uses the same single carry slot as any other portable object
 
 **Feeding & Domestication (Taming Mechanics):**
 
@@ -313,10 +316,14 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 **Trapping Mechanics:**
 
 **Setting a Trap:**
-- Player carries trap item (must have found/crafted one)
+- Player carries trap item (must have found, looted, or relocated one)
 - Click ground location → `[Set Trap]`
 - Trap becomes invisible/hidden for 2 seconds
 - When creature walks over armed trap → creature is caught
+
+**Portable Trap Rule:**
+- Spawned trap objects are portable until armed.
+- The player can pick up a trap, carry it elsewhere, drop it, and only then arm it.
 
 **Trap Spawn Visual Requirement:**
 - Trap objects spawned from map regions are rendered as colored diamonds.
@@ -407,8 +414,9 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 - `r/s/g/m/o/b/w/k` = creature territory zones by species
 - `F/N/M/I` = food source zones by food type
 - `R/S/G/Y/O/B/W/K` = trap source zones targeted by species
+- `*` = player start and extraction zone
+- `A` = artifact chamber zone
 - `.` = generic item cache zone
-- `*` = artifact chamber zone
 
 **Zone Transitioning:**
 - Creature patrols between connected zones of same type following waypoints
@@ -453,15 +461,16 @@ Once party *understands* a creature's behavior, options emerge:
 ## Artifact & Victory Conditions
 
 **Artifact Location:**
-- Hidden in owlbear's lair (deep cavern)
+- Spawned in an artifact chamber (`A`) near the owlbear's lair (deep cavern)
 - Owlbear doesn't actively guard it, but uses territory
 - Retrievable only during owlbear's hunting period (night cycle)
-- Return path: Must backtrack through dungeon without triggering new encounters
+- The artifact is portable and can be carried, dropped, recovered, or relocated like other portable objects
+- Return path: Must backtrack through dungeon to the start/extraction marker (`*`) without triggering new encounters
 
 **Win Conditions:**
-1. Retrieve artifact
-2. Reach entrance alive
-3. Party intact (group stays together mechanically)
+1. Retrieve the artifact
+2. Carry the artifact to the player start/extraction marker (`*`)
+3. Reach that marker alive
 
 **Lose Conditions:**
 - Party death: 0 Health remaining (all three party members incapacitated)
