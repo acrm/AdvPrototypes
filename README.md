@@ -51,11 +51,23 @@ Output goes to `dist/` folder.
 
 - **Left click on ground:** Move party (if path is reachable)
 - **Left click on creature/object:** Select and inspect in info panel
-- **Left click on item:** Move to item and pick it up (or pick instantly if close)
+- **Left click on item:** Select item only (does not move party)
 - **Left click near party while carrying:** Drop carried item
 - **Left click on party while carrying:** Drop carried item at party position
-- **Info panel buttons:** `[PICK UP]` for selected item, `[DROP]` for carried item
+- **Info panel buttons:** `[PICK UP]` approaches selected item and picks it up when in range, `[DROP]` drops carried item
 - **Camera:** The viewport follows the party, so the dungeon scrolls around them
+
+## Tuning Gameplay Parameters
+
+Gameplay tuning values are centralized in `src/config/gameSettings.ts`:
+
+- cycle duration and tick rates
+- party movement speed and interaction radii
+- spawn respawn cooldowns
+- creature patrol/idle behavior timings
+- per-species movement speed ranges
+
+Adjust these values to rebalance the prototype without editing gameplay logic files.
 
 **Creatures (D&D Bestiary):**
 - **Giant Rats** - Nocturnal scavengers, fear light, swarm in numbers

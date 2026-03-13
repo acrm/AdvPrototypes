@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { GameState, Vector2 } from '../types/game'
+import { GAME_SETTINGS } from '../config/gameSettings'
 
-const VIEWPORT_WIDTH = 1200
-const VIEWPORT_HEIGHT = 800
+const VIEWPORT_WIDTH = GAME_SETTINGS.world.viewportWidth
+const VIEWPORT_HEIGHT = GAME_SETTINGS.world.viewportHeight
 
 interface DungeonCanvasProps {
   gameState: GameState

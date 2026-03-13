@@ -10,12 +10,13 @@ import {
   SpawnZone,
   Vector2,
 } from '../types/game'
+import { GAME_SETTINGS } from '../config/gameSettings'
 import { GRID_SIZE, LAYOUT_REGION_SIZE } from './Pathfinding'
 import { DUNGEON_LAYOUT, GRID_COLS, GRID_ROWS } from '../data/dungeonLayout'
 
-const DEFAULT_CYCLE_TIME = 120
-const ITEM_RESPAWN_COOLDOWN = 18
-const CREATURE_RESPAWN_COOLDOWN = 35
+const DEFAULT_CYCLE_TIME = GAME_SETTINGS.cycle.initialCycleTime
+const ITEM_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.item
+const CREATURE_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.creature
 
 // Helper to convert layout coordinates to world position (center of large 3x3 region)
 function layoutToWorld(layoutX: number, layoutY: number): Vector2 {
@@ -38,8 +39,8 @@ function getZoneCandidatePositions(zone: SpawnZone): Vector2[] {
   const top = zone.position.y - zone.height / 2
   const positions: Vector2[] = []
 
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 3; col++) {
+  for (let row = 0; row < GAME_SETTINGS.world.layoutRegionScale; row++) {
+    for (let col = 0; col < GAME_SETTINGS.world.layoutRegionScale; col++) {
       positions.push({
         x: left + GRID_SIZE / 2 + col * GRID_SIZE,
         y: top + GRID_SIZE / 2 + row * GRID_SIZE,
@@ -57,18 +58,22 @@ function getRandomPositionInZone(zone: SpawnZone): Vector2 {
 
 // Helper to generate sleep schedule for creature
 function generateSleepSchedule(isNocturnal: boolean = false): SleepSchedule {
+  const sleepConfig = isNocturnal
+    ? GAME_SETTINGS.npc.sleepSchedule.nocturnal
+    : GAME_SETTINGS.npc.sleepSchedule.diurnal
+
   if (isNocturnal) {
     return {
-      sleepStart: 60 + Math.random() * 20,
-      sleepEnd: 160 + Math.random() * 20,
-      variation: 5 + Math.random() * 10,
+      sleepStart: getRandomFloat(sleepConfig.startRange[0], sleepConfig.startRange[1]),
+      sleepEnd: getRandomFloat(sleepConfig.endRange[0], sleepConfig.endRange[1]),
+      variation: getRandomFloat(sleepConfig.variationRange[0], sleepConfig.variationRange[1]),
     }
   }
 
   return {
-    sleepStart: 200 + Math.random() * 20,
-    sleepEnd: 40 + Math.random() * 20,
-    variation: 5 + Math.random() * 10,
+    sleepStart: getRandomFloat(sleepConfig.startRange[0], sleepConfig.startRange[1]),
+    sleepEnd: getRandomFloat(sleepConfig.endRange[0], sleepConfig.endRange[1]),
+    variation: getRandomFloat(sleepConfig.variationRange[0], sleepConfig.variationRange[1]),
   }
 }
 
@@ -82,7 +87,8 @@ function isSleeping(schedule: SleepSchedule, cycleTime: number): boolean {
 }
 
 function createIdleTurnTiming(startGameTime: number = 0): { idleTurnInterval: number; nextIdleTurnAt: number } {
-  const idleTurnInterval = 1 + Math.random()
+  const [minSeconds, maxSeconds] = GAME_SETTINGS.npc.idleTurnIntervalRange
+  const idleTurnInterval = getRandomFloat(minSeconds, maxSeconds)
   return {
     idleTurnInterval,
     nextIdleTurnAt: startGameTime + idleTurnInterval,
@@ -99,7 +105,7 @@ type CreatureTemplate = {
   behavior: string
   diet: string
   threat: string
-  speedRange: [number, number]
+  speedRange: readonly [number, number]
   isNocturnal: boolean
   preferredFoodTypes: Creature['preferredFoodTypes']
 }
@@ -115,7 +121,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Forages at night, hides during day',
     diet: 'Organic matter, fungi',
     threat: 'Low (unless in swarms)',
-    speedRange: [0.4, 0.7],
+    speedRange: GAME_SETTINGS.npc.speedRanges.rat,
     isNocturnal: true,
     preferredFoodTypes: ['fungi', 'organic_matter'],
   },
@@ -129,7 +135,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Hunts from webs, very territorial',
     diet: 'Flying insects, small creatures',
     threat: 'Medium (webbing can immobilize)',
-    speedRange: [0.3, 0.6],
+    speedRange: GAME_SETTINGS.npc.speedRanges.spider,
     isNocturnal: false,
     preferredFoodTypes: ['insects', 'meat'],
   },
@@ -143,7 +149,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Patrols territory during daylight',
     diet: 'Omnivorous, prefers meat',
     threat: 'Medium (organized, uses tools/traps)',
-    speedRange: [0.5, 0.8],
+    speedRange: GAME_SETTINGS.npc.speedRanges.goblin,
     isNocturnal: false,
     preferredFoodTypes: ['meat', 'organic_matter'],
   },
@@ -157,7 +163,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Deliberate, communicates via spores',
     diet: 'Decomposing organic matter',
     threat: 'Medium (spores can cause effects)',
-    speedRange: [0.2, 0.4],
+    speedRange: GAME_SETTINGS.npc.speedRanges.myconid,
     isNocturnal: false,
     preferredFoodTypes: ['organic_matter', 'fungi'],
   },
@@ -171,7 +177,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Roosts during day, hunts at night',
     diet: 'Small rodents, insects',
     threat: 'Low (avoids humanoids)',
-    speedRange: [0.6, 0.9],
+    speedRange: GAME_SETTINGS.npc.speedRanges.owl,
     isNocturnal: true,
     preferredFoodTypes: ['meat', 'insects'],
   },
@@ -185,7 +191,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Sleeps hanging from ceiling, flies erratically',
     diet: 'Insects, small creatures',
     threat: 'Low (startles easily)',
-    speedRange: [0.7, 1.1],
+    speedRange: GAME_SETTINGS.npc.speedRanges.bat,
     isNocturnal: true,
     preferredFoodTypes: ['insects'],
   },
@@ -199,7 +205,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Pack hunter, territorial',
     diet: 'Large prey, carrion',
     threat: 'High (aggressive when threatened)',
-    speedRange: [0.6, 0.9],
+    speedRange: GAME_SETTINGS.npc.speedRanges.wolf,
     isNocturnal: false,
     preferredFoodTypes: ['meat'],
   },
@@ -213,7 +219,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     behavior: 'Uses traps and ambushes, avoids direct combat',
     diet: 'Omnivorous scavenger',
     threat: 'Medium (traps and numbers)',
-    speedRange: [0.5, 0.8],
+    speedRange: GAME_SETTINGS.npc.speedRanges.kobold,
     isNocturnal: false,
     preferredFoodTypes: ['meat', 'organic_matter', 'insects'],
   },

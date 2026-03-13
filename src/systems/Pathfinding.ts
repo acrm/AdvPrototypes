@@ -1,8 +1,9 @@
 // Simple A* pathfinding for dungeon navigation
 import { Vector2, GameObject } from '../types/game'
+import { GAME_SETTINGS } from '../config/gameSettings'
 
-export const GRID_SIZE = 50 // Grid cell size in pixels
-export const LAYOUT_REGION_SCALE = 3
+export const GRID_SIZE = GAME_SETTINGS.world.navigationCellSize
+export const LAYOUT_REGION_SCALE = GAME_SETTINGS.world.layoutRegionScale
 export const LAYOUT_REGION_SIZE = GRID_SIZE * LAYOUT_REGION_SCALE
 
 // Helper to snap position to grid center

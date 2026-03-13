@@ -2,9 +2,23 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { GameState, Vector2, GameObject, Item } from '../types/game'
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, isPositionWalkable } from '../systems/Pathfinding'
+import { GAME_SETTINGS } from '../config/gameSettings'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
 import './DungeonGame.css'
+
+const PLAYER_MOVEMENT_TICK_MS = GAME_SETTINGS.player.movementTickMs
+const PLAYER_SPEED_PER_TICK = GAME_SETTINGS.player.speedPerTick
+const PLAYER_INTERACTION_RADIUS = GAME_SETTINGS.player.interactionRadius
+const PLAYER_PICKUP_RADIUS = GAME_SETTINGS.player.pickupRadius
+const PLAYER_TIME_STEP = GAME_SETTINGS.player.timeStep
+const CREATURE_TICK_MS = GAME_SETTINGS.cycle.creatureTickMs
+const CYCLE_STEP = GAME_SETTINGS.cycle.creatureTimeStep
+const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
+const NPC_PATROL_START_CHANCE = GAME_SETTINGS.npc.patrolStartChancePerTick
+const NPC_WAYPOINT_REACH_MULTIPLIER = GAME_SETTINGS.npc.waypointReachDistanceMultiplier
+const NPC_BOUNDARY_PADDING = GAME_SETTINGS.npc.mapBoundaryPadding
+const [NPC_IDLE_TURN_MIN, NPC_IDLE_TURN_MAX] = GAME_SETTINGS.npc.idleTurnIntervalRange
 
 export const DungeonGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -22,12 +36,10 @@ export const DungeonGame: React.FC = () => {
       },
       selectedObject: null,
       gameTime: 0,
-      cycleTime: 120, // Start at midday (cycle is 0-240)
+      cycleTime: GAME_SETTINGS.cycle.initialCycleTime,
       isMoving: false,
     }
   })
-
-  const PICKUP_RADIUS = 30
 
   const distanceBetween = (a: Vector2, b: Vector2): number => {
     return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2))
@@ -39,8 +51,15 @@ export const DungeonGame: React.FC = () => {
   }
 
   const interactWithItem = (state: GameState, item: Item): GameState => {
+    if (state.party.carriedItem) {
+      return {
+        ...state,
+        selectedObject: item,
+      }
+    }
+
     // Pick up if close enough and inventory is empty
-    if (!state.party.carriedItem && distanceBetween(state.party.position, item.position) <= PICKUP_RADIUS) {
+    if (distanceBetween(state.party.position, item.position) <= PLAYER_PICKUP_RADIUS) {
       return {
         ...state,
         map: {
@@ -131,56 +150,61 @@ export const DungeonGame: React.FC = () => {
           }
         }
 
-        const nextPos = path[0]
-        const distance = Math.sqrt(
-          Math.pow(nextPos.x - prev.party.position.x, 2) +
-          Math.pow(nextPos.y - prev.party.position.y, 2)
-        )
+        const speed = PLAYER_SPEED_PER_TICK
+        let movementOrigin = prev.party.position
+        let reachedWaypoint: Vector2 | null = null
 
-        // Speed: 2 pixels per frame
-        const speed = 2
-        if (distance < speed) {
-          // Reached waypoint, remove it
+        // Consume waypoints already reached before calculating movement direction.
+        while (path.length > 0) {
+          const nextWaypoint = path[0]
+          const distance = distanceBetween(nextWaypoint, movementOrigin)
+          if (distance >= speed) {
+            break
+          }
+          reachedWaypoint = nextWaypoint
+          movementOrigin = nextWaypoint
           path.shift()
-          if (path.length === 0) {
-            // Reached target: stop, clear target, and auto-pick nearby item if possible
-            let updatedMap = prev.map
-            let carriedItem = prev.party.carriedItem
+        }
 
-            if (!carriedItem) {
-              const targetPosition = prev.party.targetPosition ?? nextPos
-              const nearbyItem = findNearbyItem(prev.map.items, targetPosition, PICKUP_RADIUS)
+        if (path.length === 0) {
+          // Reached target: stop, clear target, and auto-pick nearby item if possible.
+          let updatedMap = prev.map
+          let carriedItem = prev.party.carriedItem
+          const finalPosition = reachedWaypoint ?? movementOrigin
 
-              if (nearbyItem) {
-                updatedMap = {
-                  ...prev.map,
-                  items: prev.map.items.filter((item) => item.id !== nearbyItem.id),
-                }
-                carriedItem = nearbyItem
+          if (!carriedItem) {
+            const targetPosition = prev.party.targetPosition ?? finalPosition
+            const nearbyItem = findNearbyItem(prev.map.items, targetPosition, PLAYER_PICKUP_RADIUS)
+
+            if (nearbyItem) {
+              updatedMap = {
+                ...prev.map,
+                items: prev.map.items.filter((item) => item.id !== nearbyItem.id),
               }
+              carriedItem = nearbyItem
             }
+          }
 
-            return {
-              ...prev,
-              map: updatedMap,
-              party: {
-                ...prev.party,
-                position: nextPos,
-                path: [],
-                targetPosition: null,
-                carriedItem,
-              },
-              isMoving: false,
-              gameTime: prev.gameTime + 0.001,
-            }
+          return {
+            ...prev,
+            map: updatedMap,
+            party: {
+              ...prev.party,
+              position: finalPosition,
+              path: [],
+              targetPosition: null,
+              carriedItem,
+            },
+            isMoving: false,
+            gameTime: prev.gameTime + PLAYER_TIME_STEP,
           }
         }
 
-        // Move towards next waypoint
-        const angle = Math.atan2(nextPos.y - prev.party.position.y, nextPos.x - prev.party.position.x)
+        const nextPos = path[0]
+        const angle = Math.atan2(nextPos.y - movementOrigin.y, nextPos.x - movementOrigin.x)
         const newPos = {
-          x: prev.party.position.x + Math.cos(angle) * speed,
-          y: prev.party.position.y + Math.sin(angle) * speed,
+          x: movementOrigin.x + Math.cos(angle) * speed,
+          y: movementOrigin.y + Math.sin(angle) * speed,
         }
 
         return {
@@ -191,10 +215,10 @@ export const DungeonGame: React.FC = () => {
             path,
             direction: angle,
           },
-          gameTime: prev.gameTime + 0.001,
+          gameTime: prev.gameTime + PLAYER_TIME_STEP,
         }
       })
-    }, 30)
+    }, PLAYER_MOVEMENT_TICK_MS)
 
     return () => clearInterval(interval)
   }, [gameState.isMoving])
@@ -203,9 +227,8 @@ export const DungeonGame: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setGameState((prev) => {
-        // Update cycle time (240 seconds = full cycle)
-        const nextGameTime = prev.gameTime + 0.05
-        const newCycleTime = (prev.cycleTime + 0.05) % 240
+        const nextGameTime = prev.gameTime + CYCLE_STEP
+        const newCycleTime = (prev.cycleTime + CYCLE_STEP) % CYCLE_DURATION_SECONDS
 
         const updatedCreatures = prev.map.creatures.map((creature) => {
           // Update creature state based on sleep schedule
@@ -225,9 +248,9 @@ export const DungeonGame: React.FC = () => {
 
           // If no waypoints, generate new ones using pathfinding
           if (creature.waypoints.length === 0) {
-            // Idle behavior: rotate every 1-2 seconds
+            // Idle behavior: rotate every configured interval range.
             if (prev.gameTime >= creature.nextIdleTurnAt) {
-              const nextInterval = 1 + Math.random()
+              const nextInterval = NPC_IDLE_TURN_MIN + Math.random() * (NPC_IDLE_TURN_MAX - NPC_IDLE_TURN_MIN)
               return {
                 ...creature,
                 state: 'idle' as const,
@@ -238,7 +261,7 @@ export const DungeonGame: React.FC = () => {
             }
 
             // Occasionally begin patrol route
-            if (Math.random() > 0.01) {
+            if (Math.random() > NPC_PATROL_START_CHANCE) {
               return {
                 ...creature,
                 state: 'idle' as const,
@@ -273,7 +296,7 @@ export const DungeonGame: React.FC = () => {
           )
 
           // Reached waypoint, remove it
-          if (distance < creature.speed * 2) {
+          if (distance < creature.speed * NPC_WAYPOINT_REACH_MULTIPLIER) {
             const newWaypoints = [...creature.waypoints]
             newWaypoints.shift()
             // If no more waypoints, will generate new path next iteration
@@ -292,8 +315,8 @@ export const DungeonGame: React.FC = () => {
           }
 
           // Keep within map bounds
-          newPos.x = Math.max(30, Math.min(prev.map.width - 30, newPos.x))
-          newPos.y = Math.max(30, Math.min(prev.map.height - 30, newPos.y))
+          newPos.x = Math.max(NPC_BOUNDARY_PADDING, Math.min(prev.map.width - NPC_BOUNDARY_PADDING, newPos.x))
+          newPos.y = Math.max(NPC_BOUNDARY_PADDING, Math.min(prev.map.height - NPC_BOUNDARY_PADDING, newPos.y))
 
           // Safety guard: never enter wall cells
           if (!isPositionWalkable(newPos, prev.map.objects)) {
@@ -329,7 +352,7 @@ export const DungeonGame: React.FC = () => {
           cycleTime: newCycleTime,
         }
       })
-    }, 50) // Update creatures every 50ms
+    }, CREATURE_TICK_MS)
 
     return () => clearInterval(interval)
   }, [])
@@ -356,7 +379,7 @@ export const DungeonGame: React.FC = () => {
       }
       for (const item of prev.map.items) {
         if (isPointInRect(clickPos, item)) {
-          return interactWithItem(prev, item)
+          return { ...prev, selectedObject: item }
         }
       }
       if (isPointInRect(clickPos, prev.map.artifact)) {
@@ -365,7 +388,7 @@ export const DungeonGame: React.FC = () => {
 
       // Check if click is on party
       if (
-        distanceBetween(clickPos, prev.party.position) < 30
+        distanceBetween(clickPos, prev.party.position) < PLAYER_INTERACTION_RADIUS
       ) {
         // Drop carried item at party position
         if (prev.party.carriedItem) {
@@ -379,7 +402,7 @@ export const DungeonGame: React.FC = () => {
       // Drop carried item to nearby clicked ground
       if (
         prev.party.carriedItem &&
-        distanceBetween(clickPos, prev.party.position) <= PICKUP_RADIUS &&
+        distanceBetween(clickPos, prev.party.position) <= PLAYER_PICKUP_RADIUS &&
         isPositionWalkable(clickPos, prev.map.objects)
       ) {
         return dropCarriedItemAtPosition(prev, clickPos)

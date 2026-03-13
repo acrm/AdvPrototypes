@@ -213,13 +213,11 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 ### Player Interaction with Objects
 
 **Item Interaction System:**
-  - `[Pick Up]` - Add to party inventory (can hold one item)
-  - `[Leave]` - Ignore
-  - `[Drop]` - Place at current location
-  - `[Eat]` - Consume (if safe for party) → restore 1 health
-  - `[Examine]` - View details
+- Left click on an item selects it in the info panel and does not move the party
+- `[PICK UP]` in the info panel makes the party approach the selected item and pick it up when within pickup radius
+- `[DROP]` places the carried item at party position (or nearby clicked ground when valid)
 - **Info panel action buttons:**
-   - `[PICK UP]` - picks up currently selected item (or starts moving to it)
+   - `[PICK UP]` - approaches currently selected item and picks it up when in range
    - `[DROP]` - drops currently carried item at party position
   - `[Set Trap]` - Place at location, arms after 2 seconds
   - `[Disarm]` - Remove armed trap
