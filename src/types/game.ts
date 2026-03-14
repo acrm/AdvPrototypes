@@ -57,6 +57,10 @@ export interface Creature extends GameObject {
   state: CreatureState // current state
   condition: CreatureCondition // trap-related status overlay
   trappedUntil: number | null // absolute game time when immobilization ends
+  isFriendly: boolean // tamed by repeated priming feedings
+  primingFeedings: number // successful feedings from player-primed food
+  targetFoodId: string | null // food currently being tracked by this creature
+  eatingUntil: number | null // absolute game time when current eating action ends
   detectionRadius: number // radius used by line-of-sight checks
   sleepSchedule: SleepSchedule // sleep/wake pattern
   idleTurnInterval: number // seconds between idle turns (1-2s)
@@ -69,6 +73,8 @@ export interface Food extends GameObject {
   type: 'food'
   foodType: FoodType
   nutritionValue: number
+  droppedByPartyAt: number | null // when party dropped this food (if any)
+  primedForCreatureId: string | null // creature id that had line-of-sight during drop
 }
 
 export interface Trap extends GameObject {

@@ -1,4 +1,4 @@
-import { CreatureSpecies, ItemTemplate } from '../types/game'
+import { CreatureSpecies, FoodType, ItemTemplate } from '../types/game'
 
 type RangeTuple = [number, number]
 
@@ -106,5 +106,14 @@ export const GAME_SETTINGS = {
   trap: {
     armDelaySeconds: 2,
     immobilizeDurationRangeSeconds: [10, 15] as RangeTuple,
+  },
+  food: {
+    feedingsToBecomeFriendly: 3,
+    feedingDurationSecondsByType: {
+      fungi: 4,
+      organic_matter: 5,
+      meat: 8,
+      insects: 2,
+    } as Record<FoodType, number>,
   },
 } as const

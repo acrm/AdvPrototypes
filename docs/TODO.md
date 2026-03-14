@@ -66,8 +66,8 @@
 - [x] Trap detection by creatures (triggered on collision)
 - [x] Trapped creature state: immobilized 10-15 seconds
 - [x] Enraged state: creature becomes hostile to player specifically after escaping trap
-- [ ] Priming/Feeding: drop food in creature's sight to begin taming
-- [ ] Friendly state: after 3+ feedings, creature becomes non-hostile
+- [x] Priming/Feeding: drop food in creature's sight to begin taming
+- [x] Friendly state: after 3+ feedings, creature becomes non-hostile
 - [ ] Friendly creature benefits: safe observation, no attacks, spreads non-aggression
 - [x] Trap map objects spawn as diamonds (not circles)
 - [x] Trap color encodes target species (fixed palette)
@@ -82,14 +82,14 @@
 ### Food & Feeding System
 - [x] Food item types: fungi, organic_matter, meat, insects
 - [x] Spawn zones (semi-transparent, respawning food)
-- [ ] Creatures pick up and carry food
-- [ ] Creatures move to feeding locations (species-specific behavior)
-- [ ] Feeding duration timer (2-8 seconds by food type)
-- [ ] Food disappears after consumption
-- [ ] Visual rendering of carried food at creature's forward vertex
+- [x] Creatures pick up and carry food
+- [x] Creatures move to feeding locations (species-specific behavior)
+- [x] Feeding duration timer (2-8 seconds by food type)
+- [x] Food disappears after consumption
+- [x] Visual rendering of carried food at creature's forward vertex
 - [x] Ordered diet priorities per species (`dietPriorities`)
 - [x] Predator-capable species include prey targets (`creature:<species>`) and optional `player`
-- [ ] Target selection uses first available entry in ordered priority list
+- [x] Target selection uses first available entry in ordered priority list
 
 ### Layout Marker Integration
 - [x] Parse creature zone symbols: `r/s/g/m/o/b/w/k`
@@ -132,8 +132,8 @@
 - [x] Show predator targets (including player, if configured) in creature details
 - [ ] Display zone/territory information
 - [x] Info panel shows creature detection status
-- [ ] Visual indicator for friendly creatures
-- [ ] Visual indicator for enraged creatures
+- [x] Visual indicator for friendly creatures
+- [x] Visual indicator for enraged creatures
 - [ ] Health heart display in UI
 
 ### Artifact & Objective

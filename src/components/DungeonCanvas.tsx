@@ -103,6 +103,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       // All creatures drawn as triangles (sleeping just don't rotate/move)
       drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
       drawCreatureConditionOverlay(ctx, creature)
+      drawCreatureCarriedFood(ctx, creature)
 
       if (gameState.selectedObject?.type === 'creature' && gameState.selectedObject.id === creature.id) {
         ctx.strokeStyle = '#f8f0c0'
@@ -352,7 +353,42 @@ function drawCreatureConditionOverlay(ctx: CanvasRenderingContext2D, creature: C
     ctx.arc(creature.position.x, creature.position.y, 20, 0, Math.PI * 2)
     ctx.stroke()
     ctx.restore()
+    return
   }
+
+  if (creature.isFriendly) {
+    ctx.save()
+    ctx.strokeStyle = 'rgba(120, 230, 170, 0.95)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    ctx.arc(creature.position.x, creature.position.y, 20, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+  }
+}
+
+function drawCreatureCarriedFood(ctx: CanvasRenderingContext2D, creature: Creature) {
+  if (!creature.carriedFood) {
+    return
+  }
+
+  const offset = 11
+  const foodPosition = {
+    x: creature.position.x + Math.cos(creature.direction) * offset,
+    y: creature.position.y + Math.sin(creature.direction) * offset,
+  }
+
+  ctx.save()
+  ctx.fillStyle = creature.carriedFood.color
+  ctx.beginPath()
+  ctx.arc(foodPosition.x, foodPosition.y, 4, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)'
+  ctx.lineWidth = 1
+  ctx.stroke()
+  ctx.restore()
 }
 
 function getCameraOffset(gameState: GameState, viewportWidth: number, viewportHeight: number): Vector2 {

@@ -4,6 +4,7 @@ import { GAME_SETTINGS } from '../config/gameSettings'
 import './InfoPanel.css'
 
 const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
+const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
 
 interface InfoPanelProps {
   selectedObject: GameObject | null
@@ -70,6 +71,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
     desc += `[STATE] ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
     desc += `[CONDITION] ${getCreatureConditionLabel(creature, gameTime)}\n\n`
+    desc += `[TAMING] ${creature.isFriendly ? 'Friendly' : `${creature.primingFeedings}/${FRIENDLY_FEEDINGS_REQUIRED} feedings`}\n\n`
 
     if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
       desc += `[RELEASE IN] ${Math.max(0, creature.trappedUntil - gameTime).toFixed(1)}s\n\n`
@@ -77,6 +79,14 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 
     if (creature.condition === 'enraged') {
       desc += `[HOSTILITY] Locked on player pursuit\n\n`
+    } else if (creature.isFriendly) {
+      desc += `[HOSTILITY] Non-hostile to player\n\n`
+    }
+
+    if (creature.eatingUntil !== null) {
+      desc += `[EATING] ${Math.max(0, creature.eatingUntil - gameTime).toFixed(1)}s remaining\n\n`
+    } else if (creature.targetFoodId) {
+      desc += `[FOOD TARGET] Tracking visible food\n\n`
     }
     
     // Show sleep schedule
@@ -114,6 +124,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
       `[TYPE] ${food.type}`,
       `[FOOD TYPE] ${food.foodType}`,
       `[NUTRITION] ${food.nutritionValue}`,
+      `[PRIMED] ${food.primedForCreatureId ? `Yes (${food.primedForCreatureId})` : 'No'}`,
     ].join('\n')
   }
 
@@ -234,6 +245,10 @@ function getCreatureConditionLabel(creature: Creature, gameTime: number): string
 
   if (creature.condition === 'enraged') {
     return 'Enraged'
+  }
+
+  if (creature.isFriendly) {
+    return 'Friendly'
   }
 
   return 'Normal'

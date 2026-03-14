@@ -28,3 +28,4 @@
 - 2026w12-0.3 — Implement trap lifecycle and placement flow
 - 2026w12-0.4 — Implement artifact extraction flow and remove placeholder traces
 - 2026w12-0.5 — Remove final legacy placeholder literals
+- 2026w12-0.6 — Implement creature feeding, priming, and friendly behavior
