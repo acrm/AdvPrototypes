@@ -6,6 +6,21 @@ export const GAME_SETTINGS = {
   world: {
     navigationCellSize: 50,
     layoutRegionScale: 5,
+    chunkGeneration: {
+      // 0 = strict square masks (25/25 for walls, fully open corridors), 1 = maximum variation.
+      squareDeviationFactor: 0.7,
+      wall: {
+        sideRecessChanceAtMaxDeviation: 0.95,
+        edgeNibbleChanceAtMaxDeviation: 0.75,
+        cornerCutChanceAtMaxDeviation: 0.9,
+      },
+      open: {
+        borderProtrusionChanceAtMaxDeviation: 0.85,
+        extraProtrusionChanceAtMaxDeviation: 0.65,
+        junctionClusterChanceAtMaxDeviation: 0.8,
+        maxJunctionClusterCells: 3,
+      },
+    },
     viewportWidth: 1200,
     viewportHeight: 800,
     partyStartLayoutCell: {

@@ -24,6 +24,8 @@ const TRAP_RESPAWN_COOLDOWN = GAME_SETTINGS.npc.respawnCooldownSeconds.trap
 const DEFAULT_TRAP_TRIGGER_RADIUS = GAME_SETTINGS.spawn.defaultTrapTriggerRadius
 const CHUNK_CELL_COUNT = GAME_SETTINGS.world.layoutRegionScale
 const WALL_COLOR = '#4A3F35'
+const CHUNK_GENERATION_SETTINGS = GAME_SETTINGS.world.chunkGeneration
+const CHUNK_DEVIATION = Math.max(0, Math.min(1, CHUNK_GENERATION_SETTINGS.squareDeviationFactor))
 
 type ChunkMask = boolean[][]
 type ChunkOpenSides = {
@@ -103,6 +105,21 @@ function getChunkOpenSides(layoutLines: string[], row: number, col: number): Chu
 function getChunkVariantBit(row: number, col: number, salt: number): number {
   const value = (row + 1) * 92821 + (col + 1) * 68917 + salt * 1237
   return Math.abs(value) % 2
+}
+
+function getChunkNoise01(row: number, col: number, salt: number): number {
+  const hash = Math.sin((row + 1) * 12.9898 + (col + 1) * 78.233 + salt * 37.719) * 43758.5453
+  return hash - Math.floor(hash)
+}
+
+function shouldApplyChunkVariation(
+  row: number,
+  col: number,
+  salt: number,
+  chanceAtMaxDeviation: number
+): boolean {
+  const threshold = Math.max(0, Math.min(1, CHUNK_DEVIATION * chanceAtMaxDeviation))
+  return getChunkNoise01(row, col, salt) < threshold
 }
 
 function repairDiagonalPassages(mask: ChunkMask) {
@@ -206,23 +223,67 @@ function createWallChunkMask(layoutLines: string[], row: number, col: number): C
   const mask = createChunkMask(true)
   const openSides = getChunkOpenSides(layoutLines, row, col)
 
-  if (openSides.north) {
-    setMaskCells(mask, [[0, 1], [0, 2], [0, 3], [1, 1], [1, 3]], false)
-  }
-  if (openSides.south) {
-    setMaskCells(mask, [[4, 1], [4, 2], [4, 3], [3, 1], [3, 3]], false)
-  }
-  if (openSides.west) {
-    setMaskCells(mask, [[1, 0], [2, 0], [3, 0], [1, 1], [3, 1]], false)
-  }
-  if (openSides.east) {
-    setMaskCells(mask, [[1, 4], [2, 4], [3, 4], [1, 3], [3, 3]], false)
+  const wallSettings = CHUNK_GENERATION_SETTINGS.wall
+
+  if (openSides.north && shouldApplyChunkVariation(row, col, 1001, wallSettings.sideRecessChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[0, 2]], false)
+
+    if (shouldApplyChunkVariation(row, col, 1002, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[0, 1], [0, 3]], false)
+    }
+    if (shouldApplyChunkVariation(row, col, 1003, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[1, 1], [1, 3]], false)
+    }
   }
 
-  if (openSides.north && openSides.west) setMaskCells(mask, [[0, 0]], false)
-  if (openSides.north && openSides.east) setMaskCells(mask, [[0, 4]], false)
-  if (openSides.south && openSides.west) setMaskCells(mask, [[4, 0]], false)
-  if (openSides.south && openSides.east) setMaskCells(mask, [[4, 4]], false)
+  if (openSides.south && shouldApplyChunkVariation(row, col, 1011, wallSettings.sideRecessChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[4, 2]], false)
+
+    if (shouldApplyChunkVariation(row, col, 1012, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[4, 1], [4, 3]], false)
+    }
+    if (shouldApplyChunkVariation(row, col, 1013, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[3, 1], [3, 3]], false)
+    }
+  }
+
+  if (openSides.west && shouldApplyChunkVariation(row, col, 1021, wallSettings.sideRecessChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[2, 0]], false)
+
+    if (shouldApplyChunkVariation(row, col, 1022, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[1, 0], [3, 0]], false)
+    }
+    if (shouldApplyChunkVariation(row, col, 1023, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[1, 1], [3, 1]], false)
+    }
+  }
+
+  if (openSides.east && shouldApplyChunkVariation(row, col, 1031, wallSettings.sideRecessChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[2, 4]], false)
+
+    if (shouldApplyChunkVariation(row, col, 1032, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[1, 4], [3, 4]], false)
+    }
+    if (shouldApplyChunkVariation(row, col, 1033, wallSettings.edgeNibbleChanceAtMaxDeviation)) {
+      setMaskCells(mask, [[1, 3], [3, 3]], false)
+    }
+  }
+
+  if (openSides.north && openSides.west && shouldApplyChunkVariation(row, col, 1041, wallSettings.cornerCutChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[0, 0]], false)
+  }
+
+  if (openSides.north && openSides.east && shouldApplyChunkVariation(row, col, 1042, wallSettings.cornerCutChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[0, 4]], false)
+  }
+
+  if (openSides.south && openSides.west && shouldApplyChunkVariation(row, col, 1043, wallSettings.cornerCutChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[4, 0]], false)
+  }
+
+  if (openSides.south && openSides.east && shouldApplyChunkVariation(row, col, 1044, wallSettings.cornerCutChanceAtMaxDeviation)) {
+    setMaskCells(mask, [[4, 4]], false)
+  }
 
   setMaskCells(mask, [[1, 2], [2, 1], [2, 2], [2, 3], [3, 2]], true)
   return mask
@@ -232,29 +293,55 @@ function createOpenChunkMask(layoutLines: string[], row: number, col: number): C
   const mask = createChunkMask(false)
   const openSides = getChunkOpenSides(layoutLines, row, col)
   const openSideCount = Object.values(openSides).filter(Boolean).length
+  const openSettings = CHUNK_GENERATION_SETTINGS.open
 
-  if (!openSides.north) {
+  if (!openSides.north && shouldApplyChunkVariation(row, col, 2001, openSettings.borderProtrusionChanceAtMaxDeviation)) {
     setMaskCells(mask, [[0, 1], [0, 2], [0, 3]], true)
-    setMaskCells(mask, getChunkVariantBit(row, col, 1) === 0 ? [[1, 1]] : [[1, 3]], true)
+    if (shouldApplyChunkVariation(row, col, 2002, openSettings.extraProtrusionChanceAtMaxDeviation)) {
+      setMaskCells(mask, getChunkVariantBit(row, col, 1) === 0 ? [[1, 1]] : [[1, 3]], true)
+    }
   }
 
-  if (!openSides.south) {
+  if (!openSides.south && shouldApplyChunkVariation(row, col, 2011, openSettings.borderProtrusionChanceAtMaxDeviation)) {
     setMaskCells(mask, [[4, 1], [4, 2], [4, 3]], true)
-    setMaskCells(mask, getChunkVariantBit(row, col, 2) === 0 ? [[3, 1]] : [[3, 3]], true)
+    if (shouldApplyChunkVariation(row, col, 2012, openSettings.extraProtrusionChanceAtMaxDeviation)) {
+      setMaskCells(mask, getChunkVariantBit(row, col, 2) === 0 ? [[3, 1]] : [[3, 3]], true)
+    }
   }
 
-  if (!openSides.west) {
+  if (!openSides.west && shouldApplyChunkVariation(row, col, 2021, openSettings.borderProtrusionChanceAtMaxDeviation)) {
     setMaskCells(mask, [[1, 0], [2, 0], [3, 0]], true)
-    setMaskCells(mask, getChunkVariantBit(row, col, 3) === 0 ? [[1, 1]] : [[3, 1]], true)
+    if (shouldApplyChunkVariation(row, col, 2022, openSettings.extraProtrusionChanceAtMaxDeviation)) {
+      setMaskCells(mask, getChunkVariantBit(row, col, 3) === 0 ? [[1, 1]] : [[3, 1]], true)
+    }
   }
 
-  if (!openSides.east) {
+  if (!openSides.east && shouldApplyChunkVariation(row, col, 2031, openSettings.borderProtrusionChanceAtMaxDeviation)) {
     setMaskCells(mask, [[1, 4], [2, 4], [3, 4]], true)
-    setMaskCells(mask, getChunkVariantBit(row, col, 4) === 0 ? [[1, 3]] : [[3, 3]], true)
+    if (shouldApplyChunkVariation(row, col, 2032, openSettings.extraProtrusionChanceAtMaxDeviation)) {
+      setMaskCells(mask, getChunkVariantBit(row, col, 4) === 0 ? [[1, 3]] : [[3, 3]], true)
+    }
   }
 
-  if (openSideCount > 2) {
-    setMaskCells(mask, [[2, 2]], true)
+  if (
+    openSideCount > 2 &&
+    shouldApplyChunkVariation(row, col, 2041, openSettings.junctionClusterChanceAtMaxDeviation)
+  ) {
+    const clusterCandidates: Array<[number, number]> = [
+      [2, 2],
+      [1, 2],
+      [2, 1],
+      [2, 3],
+      [3, 2],
+    ]
+    const maxCells = Math.max(1, Math.min(clusterCandidates.length, openSettings.maxJunctionClusterCells))
+    const clusterSize = Math.max(1, Math.ceil(getChunkNoise01(row, col, 2042) * maxCells))
+    const startOffset = getChunkVariantBit(row, col, 2043)
+
+    for (let index = 0; index < clusterSize; index++) {
+      const candidate = clusterCandidates[(index + startOffset) % clusterCandidates.length]
+      setMaskCells(mask, [candidate], true)
+    }
   }
 
   if (openSides.north) setMaskCells(mask, [[0, 2], [1, 2]], false)

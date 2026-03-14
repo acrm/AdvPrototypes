@@ -24,3 +24,4 @@
 - 2026w11-0.6 — Document chunk-based dungeon generation rules
 - 2026w11-0.7 — Implement chunk dungeon generation and portable traps
 - 2026w12-0.1 — Document monster threat and aggro rules
+- 2026w12-0.2 — Tune chunk generation variation controls

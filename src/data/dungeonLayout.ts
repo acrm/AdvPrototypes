@@ -42,7 +42,8 @@ export const DUNGEON_LAYOUT = `########################
 ##### # # # ########## #
 #   #   Y   #   m  O   #
 # # ####### # I ###### #
-#.k  K  S .   o F   *  #`
+#.k  K  S .   o F   *  #
+########################`
 
 export const GRID_COLS = 24
 export const GRID_ROWS = 16
