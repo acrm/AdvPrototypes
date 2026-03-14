@@ -103,4 +103,8 @@ export const GAME_SETTINGS = {
     } as Record<CreatureSpecies, string>,
     defaultTrapTriggerRadius: 22,
   },
+  trap: {
+    armDelaySeconds: 2,
+    immobilizeDurationRangeSeconds: [10, 15] as RangeTuple,
+  },
 } as const

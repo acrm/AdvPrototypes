@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { GameState, Vector2, GameObject, Item, Food, Trap } from '../types/game'
+import { Creature, GameState, Vector2, GameObject, Item, Food, Trap } from '../types/game'
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, isPositionWalkable } from '../systems/Pathfinding'
 import { GAME_SETTINGS } from '../config/gameSettings'
@@ -19,6 +19,8 @@ const NPC_PATROL_START_CHANCE = GAME_SETTINGS.npc.patrolStartChancePerTick
 const NPC_WAYPOINT_REACH_MULTIPLIER = GAME_SETTINGS.npc.waypointReachDistanceMultiplier
 const NPC_BOUNDARY_PADDING = GAME_SETTINGS.npc.mapBoundaryPadding
 const [NPC_IDLE_TURN_MIN, NPC_IDLE_TURN_MAX] = GAME_SETTINGS.npc.idleTurnIntervalRange
+const TRAP_ARM_DELAY_SECONDS = GAME_SETTINGS.trap.armDelaySeconds
+const [TRAP_IMMOBILIZE_MIN_SECONDS, TRAP_IMMOBILIZE_MAX_SECONDS] = GAME_SETTINGS.trap.immobilizeDurationRangeSeconds
 
 type Carryable = Item | Food | Trap
 
@@ -54,7 +56,7 @@ export const DungeonGame: React.FC = () => {
     position: Vector2,
     radius: number
   ): Carryable | null => {
-    const carryables: Carryable[] = [...items, ...foodList, ...traps]
+    const carryables: Carryable[] = [...items, ...foodList, ...traps.filter(isPortableTrap)]
     let nearest: Carryable | null = null
     let nearestDistance = Number.POSITIVE_INFINITY
 
@@ -70,6 +72,13 @@ export const DungeonGame: React.FC = () => {
   }
 
   const interactWithCarryable = (state: GameState, carryable: Carryable): GameState => {
+    if (carryable.type === 'trap' && !isPortableTrap(carryable)) {
+      return {
+        ...state,
+        selectedObject: carryable,
+      }
+    }
+
     if (state.party.carriedItem) {
       return {
         ...state,
@@ -174,6 +183,8 @@ export const DungeonGame: React.FC = () => {
         ...state.party.carriedItem,
         type: 'trap',
         position: dropPosition,
+        state: 'portable',
+        armingStartedAt: null,
       }
 
       return {
@@ -207,6 +218,40 @@ export const DungeonGame: React.FC = () => {
         carriedItem: null,
       },
       selectedObject: droppedItem,
+    }
+  }
+
+  const handleSetTrapOnGround = (state: GameState, trapId: string): GameState => {
+    const selectedTrap = state.map.traps.find((trap) => trap.id === trapId)
+    if (!selectedTrap || !isPortableTrap(selectedTrap)) {
+      return state
+    }
+
+    if (distanceBetween(state.party.position, selectedTrap.position) > PLAYER_PICKUP_RADIUS) {
+      return state
+    }
+
+    const armedTrap: Trap = {
+      ...selectedTrap,
+      state: 'arming',
+      armingStartedAt: state.gameTime,
+    }
+
+    const nextMap = {
+      ...state.map,
+      traps: state.map.traps.map((trap) => (trap.id === trapId ? armedTrap : trap)),
+    }
+
+    return {
+      ...state,
+      map: nextMap,
+      party: {
+        ...state.party,
+        path: [],
+        targetPosition: null,
+      },
+      isMoving: false,
+      selectedObject: armedTrap,
     }
   }
 
@@ -319,7 +364,59 @@ export const DungeonGame: React.FC = () => {
         const nextGameTime = prev.gameTime + CYCLE_STEP
         const newCycleTime = (prev.cycleTime + CYCLE_STEP) % CYCLE_DURATION_SECONDS
 
+        const updatedTraps = prev.map.traps.map((trap) => {
+          if (trap.state !== 'arming' || trap.armingStartedAt === null) {
+            return trap
+          }
+
+          if (nextGameTime - trap.armingStartedAt < TRAP_ARM_DELAY_SECONDS) {
+            return trap
+          }
+
+          return {
+            ...trap,
+            state: 'armed' as const,
+          }
+        })
+
         const updatedCreatures = prev.map.creatures.map((creature) => {
+          if (creature.condition === 'trapped') {
+            if (creature.trappedUntil !== null && nextGameTime < creature.trappedUntil) {
+              return {
+                ...creature,
+                state: 'idle' as const,
+                waypoints: [],
+              }
+            }
+
+            return {
+              ...creature,
+              condition: 'enraged' as const,
+              trappedUntil: null,
+              state: 'idle' as const,
+              waypoints: [],
+            }
+          }
+
+          if (creature.condition === 'enraged') {
+            const chasePath = findPathWithObstacles(
+              creature.position,
+              prev.party.position,
+              prev.map.objects,
+              prev.map.width,
+              prev.map.height
+            )
+
+            return moveCreatureAlongWaypoints(
+              {
+                ...creature,
+                waypoints: chasePath,
+              },
+              chasePath,
+              prev.map
+            )
+          }
+
           // Update creature state based on sleep schedule
           const shouldSleep = isSleeping(creature.sleepSchedule, newCycleTime)
           const newState: 'sleeping' | 'idle' | 'patrol' = shouldSleep
@@ -378,56 +475,48 @@ export const DungeonGame: React.FC = () => {
             }
           }
 
-          const target = creature.waypoints[0]
-          const distance = Math.sqrt(
-            Math.pow(target.x - creature.position.x, 2) +
-            Math.pow(target.y - creature.position.y, 2)
-          )
+          return moveCreatureAlongWaypoints(creature, creature.waypoints, prev.map)
+        })
 
-          // Reached waypoint, remove it
-          if (distance < creature.speed * NPC_WAYPOINT_REACH_MULTIPLIER) {
-            const newWaypoints = [...creature.waypoints]
-            newWaypoints.shift()
-            // If no more waypoints, will generate new path next iteration
-            return { 
-              ...creature, 
-              state: (newWaypoints.length > 0 ? 'patrol' : 'idle') as 'patrol' | 'idle',
-              waypoints: newWaypoints 
+        const triggeredTrapIds = new Set<string>()
+        const trappedCreatures = updatedCreatures.map((creature) => {
+          if (creature.condition === 'trapped') {
+            return creature
+          }
+
+          const triggeringTrap = updatedTraps.find((trap) => {
+            if (triggeredTrapIds.has(trap.id) || trap.state !== 'armed') {
+              return false
             }
-          }
 
-          // Move towards waypoint
-          const angle = Math.atan2(target.y - creature.position.y, target.x - creature.position.x)
-          const newPos = {
-            x: creature.position.x + Math.cos(angle) * creature.speed,
-            y: creature.position.y + Math.sin(angle) * creature.speed,
-          }
-
-          // Keep within map bounds
-          newPos.x = Math.max(NPC_BOUNDARY_PADDING, Math.min(prev.map.width - NPC_BOUNDARY_PADDING, newPos.x))
-          newPos.y = Math.max(NPC_BOUNDARY_PADDING, Math.min(prev.map.height - NPC_BOUNDARY_PADDING, newPos.y))
-
-          // Safety guard: never enter wall cells
-          if (!isPositionWalkable(newPos, prev.map.objects)) {
-            return {
-              ...creature,
-              state: 'idle' as const,
-              waypoints: [],
+            if (trap.targetSpecies !== creature.species) {
+              return false
             }
+
+            return distanceBetween(trap.position, creature.position) <= trap.triggerRadius
+          })
+
+          if (!triggeringTrap) {
+            return creature
           }
 
+          triggeredTrapIds.add(triggeringTrap.id)
           return {
             ...creature,
-            position: newPos,
-            direction: angle,
-            state: 'patrol' as const,
+            condition: 'trapped' as const,
+            trappedUntil: nextGameTime + getTrapImmobilizeDurationSeconds(creature),
+            state: 'idle' as const,
+            waypoints: [],
           }
         })
+
+        const activeTraps = updatedTraps.filter((trap) => !triggeredTrapIds.has(trap.id))
 
         const updatedMap = refreshSpawnZones(
           {
             ...prev.map,
-            creatures: updatedCreatures,
+            creatures: trappedCreatures,
+            traps: activeTraps,
           },
           nextGameTime,
           newCycleTime,
@@ -437,6 +526,7 @@ export const DungeonGame: React.FC = () => {
         return {
           ...prev,
           map: updatedMap,
+          selectedObject: syncSelectedObject(prev.selectedObject, updatedMap),
           gameTime: nextGameTime,
           cycleTime: newCycleTime,
         }
@@ -477,6 +567,10 @@ export const DungeonGame: React.FC = () => {
         }
       }
       for (const trap of prev.map.traps) {
+        if (!isPortableTrap(trap)) {
+          continue
+        }
+
         if (isPointInRect(clickPos, trap)) {
           return { ...prev, selectedObject: trap }
         }
@@ -555,13 +649,23 @@ export const DungeonGame: React.FC = () => {
         ? prev.map.items.find((item) => item.id === prev.selectedObject?.id)
         : prev.selectedObject.type === 'food'
           ? prev.map.food.find((food) => food.id === prev.selectedObject?.id)
-          : prev.map.traps.find((trap) => trap.id === prev.selectedObject?.id)
+          : prev.map.traps.find((trap) => trap.id === prev.selectedObject?.id && isPortableTrap(trap))
 
       if (!selectedCarryable) {
         return prev
       }
 
       return interactWithCarryable(prev, selectedCarryable)
+    })
+  }, [])
+
+  const handleSetTrapSelected = useCallback(() => {
+    setGameState((prev) => {
+      if (prev.selectedObject?.type !== 'trap') {
+        return prev
+      }
+
+      return handleSetTrapOnGround(prev, prev.selectedObject.id)
     })
   }, [])
 
@@ -588,18 +692,115 @@ export const DungeonGame: React.FC = () => {
         selectedObject={gameState.selectedObject}
         party={gameState.party}
         cycleTime={gameState.cycleTime}
+        gameTime={gameState.gameTime}
         canPickUpSelected={
           (
             gameState.selectedObject?.type === 'item' ||
             gameState.selectedObject?.type === 'food' ||
-            gameState.selectedObject?.type === 'trap'
+            (gameState.selectedObject?.type === 'trap' &&
+              Boolean(gameState.map.traps.find((trap) => trap.id === gameState.selectedObject?.id && isPortableTrap(trap))))
           ) &&
           !gameState.party.carriedItem
         }
+        canSetTrapSelected={Boolean(
+          gameState.selectedObject?.type === 'trap' &&
+          gameState.map.traps.find((trap) => trap.id === gameState.selectedObject?.id && isPortableTrap(trap)) &&
+          distanceBetween(gameState.party.position, gameState.selectedObject.position) <= PLAYER_PICKUP_RADIUS
+        )}
         canDropCarried={Boolean(gameState.party.carriedItem)}
         onPickUpSelected={handlePickUpSelected}
+        onSetTrapSelected={handleSetTrapSelected}
         onDropCarried={handleDropCarried}
       />
     </div>
   )
+}
+
+function isPortableTrap(trap: Trap): boolean {
+  return trap.state === 'portable'
+}
+
+function getTrapImmobilizeDurationSeconds(creature: Creature): number {
+  const size = Math.max(creature.width, creature.height)
+  const normalizedSize = Math.max(0, Math.min(1, (size - 12) / 10))
+  return TRAP_IMMOBILIZE_MIN_SECONDS + normalizedSize * (TRAP_IMMOBILIZE_MAX_SECONDS - TRAP_IMMOBILIZE_MIN_SECONDS)
+}
+
+function moveCreatureAlongWaypoints(creature: Creature, waypoints: Vector2[], map: GameState['map']): Creature {
+  const remainingWaypoints = [...waypoints]
+
+  while (remainingWaypoints.length > 0) {
+    const distance = Math.hypot(
+      remainingWaypoints[0].x - creature.position.x,
+      remainingWaypoints[0].y - creature.position.y
+    )
+
+    if (distance >= creature.speed * NPC_WAYPOINT_REACH_MULTIPLIER) {
+      break
+    }
+
+    remainingWaypoints.shift()
+  }
+
+  if (remainingWaypoints.length === 0) {
+    return {
+      ...creature,
+      state: 'idle',
+      waypoints: [],
+    }
+  }
+
+  const target = remainingWaypoints[0]
+  const angle = Math.atan2(target.y - creature.position.y, target.x - creature.position.x)
+  const newPos = {
+    x: creature.position.x + Math.cos(angle) * creature.speed,
+    y: creature.position.y + Math.sin(angle) * creature.speed,
+  }
+
+  newPos.x = Math.max(NPC_BOUNDARY_PADDING, Math.min(map.width - NPC_BOUNDARY_PADDING, newPos.x))
+  newPos.y = Math.max(NPC_BOUNDARY_PADDING, Math.min(map.height - NPC_BOUNDARY_PADDING, newPos.y))
+
+  if (!isPositionWalkable(newPos, map.objects)) {
+    return {
+      ...creature,
+      state: 'idle',
+      waypoints: [],
+    }
+  }
+
+  return {
+    ...creature,
+    position: newPos,
+    direction: angle,
+    state: 'patrol',
+    waypoints: remainingWaypoints,
+  }
+}
+
+function syncSelectedObject(selectedObject: GameObject | null, map: GameState['map']): GameObject | null {
+  if (!selectedObject) {
+    return null
+  }
+
+  if (selectedObject.type === 'creature') {
+    return map.creatures.find((creature) => creature.id === selectedObject.id) ?? null
+  }
+
+  if (selectedObject.type === 'item') {
+    return map.items.find((item) => item.id === selectedObject.id) ?? null
+  }
+
+  if (selectedObject.type === 'food') {
+    return map.food.find((food) => food.id === selectedObject.id) ?? null
+  }
+
+  if (selectedObject.type === 'trap') {
+    return map.traps.find((trap) => trap.id === selectedObject.id) ?? null
+  }
+
+  if (selectedObject.type === 'artifact') {
+    return map.artifact.id === selectedObject.id ? map.artifact : null
+  }
+
+  return map.objects.find((obj) => obj.id === selectedObject.id) ?? null
 }

@@ -82,6 +82,10 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
 
     // Draw traps as diamonds.
     for (const trap of gameState.map.traps) {
+      if (!isTrapVisible(trap)) {
+        continue
+      }
+
       drawDiamond(ctx, trap.position, trap.color, trap.width / 2)
     }
 
@@ -96,6 +100,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     for (const creature of gameState.map.creatures) {
       // All creatures drawn as triangles (sleeping just don't rotate/move)
       drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
+      drawCreatureConditionOverlay(ctx, creature)
 
       if (gameState.selectedObject?.type === 'creature' && gameState.selectedObject.id === creature.id) {
         ctx.strokeStyle = '#f8f0c0'
@@ -212,6 +217,10 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
 
     // Check traps (diamond approximated with circle)
     for (const trap of gameState.map.traps) {
+      if (!isTrapVisible(trap)) {
+        continue
+      }
+
       const dx = x - trap.position.x
       const dy = y - trap.position.y
       const distance = Math.sqrt(dx * dx + dy * dy)
@@ -286,6 +295,39 @@ function drawDiamond(
   ctx.closePath()
   ctx.fill()
   ctx.restore()
+}
+
+function isTrapVisible(trap: GameState['map']['traps'][number]): boolean {
+  return trap.state === 'portable'
+}
+
+function drawCreatureConditionOverlay(ctx: CanvasRenderingContext2D, creature: Creature) {
+  if (creature.condition === 'trapped') {
+    ctx.save()
+    ctx.strokeStyle = 'rgba(255, 214, 102, 0.95)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(creature.position.x, creature.position.y, 20, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(creature.position.x - 10, creature.position.y - 10)
+    ctx.lineTo(creature.position.x + 10, creature.position.y + 10)
+    ctx.moveTo(creature.position.x + 10, creature.position.y - 10)
+    ctx.lineTo(creature.position.x - 10, creature.position.y + 10)
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+
+  if (creature.condition === 'enraged') {
+    ctx.save()
+    ctx.strokeStyle = 'rgba(255, 92, 92, 0.95)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(creature.position.x, creature.position.y, 20, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.restore()
+  }
 }
 
 function getCameraOffset(gameState: GameState, viewportWidth: number, viewportHeight: number): Vector2 {

@@ -9,9 +9,12 @@ interface InfoPanelProps {
   selectedObject: GameObject | null
   party: Party
   cycleTime: number
+  gameTime: number
   canPickUpSelected: boolean
+  canSetTrapSelected: boolean
   canDropCarried: boolean
   onPickUpSelected: () => void
+  onSetTrapSelected: () => void
   onDropCarried: () => void
 }
 
@@ -19,9 +22,12 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   selectedObject,
   party,
   cycleTime,
+  gameTime,
   canPickUpSelected,
+  canSetTrapSelected,
   canDropCarried,
   onPickUpSelected,
+  onSetTrapSelected,
   onDropCarried,
 }) => {
   const getTimeOfDay = (cycle: number): string => {
@@ -39,7 +45,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     info += `[POSITION] (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
     info += `[CARRYING] ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
     info += `[OBSERVED] ${party.observedCreatures.size} creatures\n\n`
-    info += `[CONTROLS] Use [PICK UP] and [DROP] buttons below\n\n`
+    info += `[CONTROLS] Use [PICK UP], [SET TRAP], and [DROP] actions below\n\n`
     info += `[PROGRESS] Searching for artifact...`
     return info
   }
@@ -51,6 +57,15 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     // Show current state
     const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
     desc += `[STATE] ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
+    desc += `[CONDITION] ${getCreatureConditionLabel(creature, gameTime)}\n\n`
+
+    if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
+      desc += `[RELEASE IN] ${Math.max(0, creature.trappedUntil - gameTime).toFixed(1)}s\n\n`
+    }
+
+    if (creature.condition === 'enraged') {
+      desc += `[HOSTILITY] Locked on player pursuit\n\n`
+    }
     
     // Show sleep schedule
     const sleepStart = Math.floor(creature.sleepSchedule.sleepStart)
@@ -91,14 +106,21 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   }
 
   const getTrapDescription = (trap: Trap): string => {
+    const armingRemaining = trap.state === 'arming' && trap.armingStartedAt !== null
+      ? Math.max(0, GAME_SETTINGS.trap.armDelaySeconds - (gameTime - trap.armingStartedAt))
+      : 0
+
     return [
       `= ${trap.name.toUpperCase()} =`,
       '',
       trap.description,
       '',
       `[TYPE] ${trap.type}`,
+      `[STATUS] ${formatTrapStateLabel(trap)}`,
+      `[VISIBILITY] ${trap.state === 'portable' ? 'Visible and portable' : 'Hidden after placement'}`,
       `[TARGET SPECIES] ${trap.targetSpecies}`,
       `[TRIGGER RADIUS] ${Math.floor(trap.triggerRadius)}px`,
+      ...(trap.state === 'arming' ? [`[ARMED IN] ${armingRemaining.toFixed(1)}s`] : []),
     ].join('\n')
   }
 
@@ -137,6 +159,14 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
           <button
             type="button"
             className="action-button"
+            disabled={!canSetTrapSelected}
+            onClick={onSetTrapSelected}
+          >
+            [SET TRAP]
+          </button>
+          <button
+            type="button"
+            className="action-button"
             disabled={!canDropCarried}
             onClick={onDropCarried}
           >
@@ -149,6 +179,14 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 }
 
 function getDetectionModeLabel(creature: Creature): string {
+  if (creature.condition === 'trapped') {
+    return 'Immobilized (trap)'
+  }
+
+  if (creature.condition === 'enraged') {
+    return 'Pursuit (enraged)'
+  }
+
   if (creature.state === 'sleeping') {
     return 'Inactive (sleeping)'
   }
@@ -175,6 +213,30 @@ function formatDietTarget(target: DietTarget): string {
   }
 
   return target
+}
+
+function getCreatureConditionLabel(creature: Creature, gameTime: number): string {
+  if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
+    return `Trapped (${Math.max(0, creature.trappedUntil - gameTime).toFixed(1)}s left)`
+  }
+
+  if (creature.condition === 'enraged') {
+    return 'Enraged'
+  }
+
+  return 'Normal'
+}
+
+function formatTrapStateLabel(trap: Trap): string {
+  if (trap.state === 'portable') {
+    return 'Portable'
+  }
+
+  if (trap.state === 'arming') {
+    return 'Arming'
+  }
+
+  return 'Armed'
 }
 
 interface InfoContentProps {

@@ -60,12 +60,12 @@
 - [ ] Dangerous food types: meat (spoiled), certain fungi (hallucinogenic)
 
 ### Trapping & Domestication Mechanics
-- [ ] Trap item type (player can carry and place)
-- [ ] Trap placement UI action
-- [ ] Spawned traps are portable until armed
-- [ ] Trap detection by creatures (triggered on collision)
-- [ ] Trapped creature state: immobilized 10-15 seconds
-- [ ] Enraged state: creature becomes hostile to player specifically after escaping trap
+- [x] Trap item type (player can carry and place)
+- [x] Trap placement UI action
+- [x] Spawned traps are portable until armed
+- [x] Trap detection by creatures (triggered on collision)
+- [x] Trapped creature state: immobilized 10-15 seconds
+- [x] Enraged state: creature becomes hostile to player specifically after escaping trap
 - [ ] Priming/Feeding: drop food in creature's sight to begin taming
 - [ ] Friendly state: after 3+ feedings, creature becomes non-hostile
 - [ ] Friendly creature benefits: safe observation, no attacks, spreads non-aggression

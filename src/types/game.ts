@@ -9,9 +9,13 @@ export type ObjectType = 'creature' | 'obstacle' | 'item' | 'artifact' | 'food' 
 
 export type CreatureState = 'sleeping' | 'idle' | 'patrol'
 
+export type CreatureCondition = 'normal' | 'trapped' | 'enraged'
+
 export type FoodType = 'fungi' | 'organic_matter' | 'meat' | 'insects'
 
 export type CreatureSpecies = 'rat' | 'spider' | 'goblin' | 'myconid' | 'owl' | 'bat' | 'wolf' | 'kobold'
+
+export type TrapState = 'portable' | 'arming' | 'armed'
 
 export type FoodDietTarget = `food:${FoodType}`
 
@@ -51,6 +55,8 @@ export interface Creature extends GameObject {
   waypoints: Vector2[] // random movement path
   speed: number // movement speed
   state: CreatureState // current state
+  condition: CreatureCondition // trap-related status overlay
+  trappedUntil: number | null // absolute game time when immobilization ends
   detectionRadius: number // radius used by line-of-sight checks
   sleepSchedule: SleepSchedule // sleep/wake pattern
   idleTurnInterval: number // seconds between idle turns (1-2s)
@@ -69,6 +75,8 @@ export interface Trap extends GameObject {
   type: 'trap'
   targetSpecies: CreatureSpecies
   triggerRadius: number
+  state: TrapState
+  armingStartedAt: number | null
 }
 
 export interface SpawnZone extends GameObject {

@@ -1,7 +1,7 @@
 {
   "name": "interactive-ball-game",
   "private": true,
-  "version": "2026w12-0.2",
+  "version": "2026w12-0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
