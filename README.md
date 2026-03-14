@@ -44,6 +44,7 @@ Output goes to `dist/` folder.
 - **Avoidance:** Use stealth, environmental knowledge, and creature relationships to bypass threats
 - **Day/Night Cycles:** Creature activity changes based on time; use this to your advantage
 - **Item Transport:** Pick up one item at a time, carry it through the map, and drop it strategically
+- **Extraction Objective:** Retrieve the artifact from `A` and carry it back to the extraction marker `*`
 - **Large Spawn Regions:** Each layout symbol now defines a 150x150 dungeon region where creatures, items, and the artifact can reappear after a cooldown
 - **Follow Camera:** The visible play area stays fixed while the camera remains centered on the party
 
@@ -54,7 +55,7 @@ Output goes to `dist/` folder.
 - **Left click on item:** Select item only (does not move party)
 - **Left click near party while carrying:** Drop carried item
 - **Left click on party while carrying:** Drop carried item at party position
-- **Info panel buttons:** `[PICK UP]` approaches selected item and picks it up when in range, `[DROP]` drops carried item
+- **Info panel buttons:** `[PICK UP]` approaches selected portable object (item, food, trap, artifact), `[SET TRAP]` arms selected nearby trap, `[DROP]` drops carried object
 - **Camera:** The viewport follows the party, so the dungeon scrolls around them
 
 ## Tuning Gameplay Parameters
@@ -74,7 +75,7 @@ Adjust these values to rebalance the prototype without editing gameplay logic fi
 - **Giant Spiders** - Territorial hunters, create webs, aggressive to intruders
 - **Goblins** - Intelligent, organized, territorial, set traps
 - **Myconids** - Slow fungal entities, create safe zones through alien intelligence
-- **Owlbear** - Apex predator, deadly in combat, hunts on its schedule
+- **Cave Owl** - Nocturnal aerial hunter with strong detection radius
 
 See [docs/GAME_LOGIC.md](./docs/GAME_LOGIC.md) for detailed creature ecosystem design.
 
@@ -90,14 +91,18 @@ See [docs/GAME_LOGIC.md](./docs/GAME_LOGIC.md) for detailed creature ecosystem d
 ```
 src/
   components/
-    DungeonGame.tsx      # Main game component (replaces BallGame.tsx)
-    Creature.tsx         # Creature rendering & behavior
-    Player.tsx           # Party representation
-    DungeonMap.tsx       # Level/dungeon layout
+    DungeonGame.tsx      # Main gameplay loop and interactions
+    DungeonCanvas.tsx    # World rendering and camera
+    InfoPanel.tsx        # Object details and action buttons
   systems/
-    CreatureAI.ts        # Behavior system for creatures
-    EcosystemManager.ts  # Creature interactions & ecology
-    ObservationLog.ts    # Player knowledge tracking
+    MapGenerator.ts      # Chunk generation and spawn zones
+    Pathfinding.ts       # Navigation and walkability checks
+  config/
+    gameSettings.ts      # Central gameplay tuning
+  data/
+    dungeonLayout.ts     # Symbol-based zone/chunk layout
+  types/
+    game.ts              # Shared game state/types
   App.tsx               # Root component
   main.tsx              # Entry point
 docs/

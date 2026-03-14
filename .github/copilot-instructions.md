@@ -14,14 +14,13 @@
 - Use commit message format: `<version>: <description>`.
 - Do not create a second manual commit after a successful bump.
 - Standard sequence: change files -> update docs if needed -> bump version -> push.
-- Ball game implementation is a bootstrap placeholder and is expected to be replaced by real project features early.
 - After any source change, review and update domain docs if impacted.
 
 ## Key Documentation
 - `README.md` — project overview
 - `docs/GAME_LOGIC.md` — game mechanics
 - `docs/TODO.md` — roadmap
-- `src/components/BallGame.tsx` — game component
+- `src/components/DungeonGame.tsx` — game component
 
 ## Development Commands
 - Build: `npm run build`

@@ -992,6 +992,14 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
       description: 'A glowing golden relic. This is your objective.',
       sourceSpawnZoneId: null,
     },
+    extractionZone: {
+      position: layoutToWorld(
+        GAME_SETTINGS.world.partyStartLayoutCell.x,
+        GAME_SETTINGS.world.partyStartLayoutCell.y
+      ),
+      width: LAYOUT_REGION_SIZE,
+      height: LAYOUT_REGION_SIZE,
+    },
   }
 
   let partyStartPosition: Vector2 = getPreferredChunkPosition(
@@ -1001,6 +1009,11 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
     ),
     map.objects
   )
+  map.extractionZone = {
+    position: partyStartPosition,
+    width: LAYOUT_REGION_SIZE,
+    height: LAYOUT_REGION_SIZE,
+  }
 
   let itemZoneCount = 0
   let artifactZoneCount = 0
@@ -1018,6 +1031,21 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
 
       if (symbol === 'P') {
         partyStartPosition = getPreferredChunkPosition(position, map.objects)
+        map.extractionZone = {
+          position: partyStartPosition,
+          width: LAYOUT_REGION_SIZE,
+          height: LAYOUT_REGION_SIZE,
+        }
+        continue
+      }
+
+      if (symbol === '*') {
+        partyStartPosition = getPreferredChunkPosition(position, map.objects)
+        map.extractionZone = {
+          position: partyStartPosition,
+          width: LAYOUT_REGION_SIZE,
+          height: LAYOUT_REGION_SIZE,
+        }
         continue
       }
 
@@ -1104,7 +1132,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
         continue
       }
 
-      if (symbol === '*') {
+      if (symbol === 'A') {
         artifactZoneCount++
         spawnZoneSequence++
         const zone = createSpawnZoneBase(
@@ -1131,7 +1159,7 @@ export function refreshSpawnZones(
   map: GameMap,
   gameTime: number,
   cycleTime: number,
-  carriedItem: Item | Food | Trap | null
+  carriedItem: Item | Food | Trap | Artifact | null
 ): GameMap {
   const presentIds = new Set<string>()
 

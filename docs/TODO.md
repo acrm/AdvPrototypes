@@ -95,8 +95,8 @@
 - [x] Parse creature zone symbols: `r/s/g/m/o/b/w/k`
 - [x] Parse food zone symbols: `F/N/M/I`
 - [x] Parse trap zone symbols: `R/S/G/Y/O/B/W/K`
-- [ ] Parse `*` as player start and extraction zone
-- [ ] Parse `A` as artifact zone
+- [x] Parse `*` as player start and extraction zone
+- [x] Parse `A` as artifact zone
 - [x] Keep `.` as item zone
 - [x] Treat symbols as zone definitions, not fixed single-entity placements
 - [ ] Attach chunk generator to zone map before spawn placement
@@ -106,8 +106,8 @@
 - [x] Object click detection 
 - [x] "Pick Up" action for food items
 - [x] "Drop" action for carrying items
-- [ ] "Pick Up" action for traps and artifact
-- [ ] "Drop" action for traps and artifact
+- [x] "Pick Up" action for traps and artifact
+- [x] "Drop" action for traps and artifact
 - [x] "Examine" action for objects
 - [x] Party inventory (one item max)
 - [x] Visual feedback for held items at party direction
@@ -138,10 +138,10 @@
 
 ### Artifact & Objective
 - [ ] Owlbear lair location with artifact
-- [ ] Artifact is portable and uses the standard carry slot
-- [ ] Win condition: carry artifact to `*` extraction zone
-- [ ] Player start/extraction location clearly marked by `*`
-- [ ] Artifact chamber location clearly marked by `A`
+- [x] Artifact is portable and uses the standard carry slot
+- [x] Win condition: carry artifact to `*` extraction zone
+- [x] Player start/extraction location clearly marked by `*`
+- [x] Artifact chamber location clearly marked by `A`
 - [ ] Clear path possibility to artifact despite dangers
 - [ ] Creature placement creates strategic challenge
 - [ ] Majority of likely routes to the artifact are blocked or pressured by dangerous monsters

@@ -49,6 +49,8 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     ctx.save()
     ctx.translate(-camera.x, -camera.y)
 
+    drawExtractionZone(ctx, gameState)
+
     // Draw static objects (rectangles)
     for (const obj of gameState.map.objects) {
       ctx.fillStyle = obj.color
@@ -294,6 +296,29 @@ function drawDiamond(
   ctx.lineTo(position.x - radius, position.y)
   ctx.closePath()
   ctx.fill()
+  ctx.restore()
+}
+
+function drawExtractionZone(ctx: CanvasRenderingContext2D, gameState: GameState) {
+  const zone = gameState.map.extractionZone
+  const left = zone.position.x - zone.width / 2
+  const top = zone.position.y - zone.height / 2
+
+  ctx.save()
+  ctx.fillStyle = 'rgba(80, 180, 255, 0.06)'
+  ctx.fillRect(left, top, zone.width, zone.height)
+
+  ctx.strokeStyle = 'rgba(120, 210, 255, 0.65)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([8, 6])
+  ctx.strokeRect(left + 2, top + 2, zone.width - 4, zone.height - 4)
+  ctx.setLineDash([])
+
+  ctx.fillStyle = 'rgba(180, 230, 255, 0.95)'
+  ctx.font = 'bold 24px "IBM Plex Mono", monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('*', zone.position.x, zone.position.y)
   ctx.restore()
 }
 

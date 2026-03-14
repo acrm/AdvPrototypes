@@ -55,13 +55,9 @@ Keep docs in English, concise, and factual.
 - Each agent must commit only its own staged files plus bump metadata.
 - Never stage or commit unrelated modifications from other agents.
 
-## Bootstrap Placeholder Scope
-
-`src/components/BallGame.tsx` is a temporary bootstrap placeholder and is expected to be replaced early by project-specific functionality.
-
 ## File Locations to Know
 
-- Game component: `src/components/BallGame.tsx`
+- Game component: `src/components/DungeonGame.tsx`
 - Main app: `src/App.tsx`
 - Game logic docs: `docs/GAME_LOGIC.md`
 - Vite config: `vite.config.ts`

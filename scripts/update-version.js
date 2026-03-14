@@ -12,6 +12,8 @@ const packageFile = join(__dirname, '..', 'package.json');
 const buildNotesFile = join(__dirname, '..', 'build-notes.md');
 const metadataRepoPaths = ['version.json', 'package.json', 'build-notes.md'];
 const protectedMetadata = new Set(metadataRepoPaths);
+const legacyPackageName = 'interactive-ball-game';
+const canonicalPackageName = 'dungeon-ecosystem-prototype';
 
 function getCurrentWeekCode() {
   const date = new Date();
@@ -158,6 +160,9 @@ versionData.build = newBuild;
 versionData.currentVersion = newVersion;
 
 const packageData = JSON.parse(originalPackageContent);
+if (packageData.name === legacyPackageName) {
+  packageData.name = canonicalPackageName;
+}
 packageData.version = newVersion;
 
 const noteEntry = `- ${newVersion} — ${description}\n`;

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { Creature, GameState, Vector2, GameObject, Item, Food, Trap } from '../types/game'
+import { Artifact, Creature, ExtractionZone, GameState, Vector2, GameObject, Item, Food, Trap } from '../types/game'
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, isPositionWalkable } from '../systems/Pathfinding'
 import { GAME_SETTINGS } from '../config/gameSettings'
@@ -21,8 +21,9 @@ const NPC_BOUNDARY_PADDING = GAME_SETTINGS.npc.mapBoundaryPadding
 const [NPC_IDLE_TURN_MIN, NPC_IDLE_TURN_MAX] = GAME_SETTINGS.npc.idleTurnIntervalRange
 const TRAP_ARM_DELAY_SECONDS = GAME_SETTINGS.trap.armDelaySeconds
 const [TRAP_IMMOBILIZE_MIN_SECONDS, TRAP_IMMOBILIZE_MAX_SECONDS] = GAME_SETTINGS.trap.immobilizeDurationRangeSeconds
+const HIDDEN_ARTIFACT_POSITION = GAME_SETTINGS.world.hiddenArtifactPosition
 
-type Carryable = Item | Food | Trap
+type Carryable = Item | Food | Trap | Artifact
 
 export const DungeonGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -53,10 +54,16 @@ export const DungeonGame: React.FC = () => {
     items: Item[],
     foodList: Food[],
     traps: Trap[],
+    artifact: Artifact,
     position: Vector2,
     radius: number
   ): Carryable | null => {
-    const carryables: Carryable[] = [...items, ...foodList, ...traps.filter(isPortableTrap)]
+    const carryables: Carryable[] = [
+      ...items,
+      ...foodList,
+      ...traps.filter(isPortableTrap),
+      ...(isArtifactOnMap(artifact) ? [artifact] : []),
+    ]
     let nearest: Carryable | null = null
     let nearestDistance = Number.POSITIVE_INFINITY
 
@@ -100,6 +107,10 @@ export const DungeonGame: React.FC = () => {
         ? state.map.traps.filter((existingTrap) => existingTrap.id !== carryable.id)
         : state.map.traps
 
+      const nextArtifact = carryable.type === 'artifact'
+        ? hideArtifact(carryable)
+        : state.map.artifact
+
       return {
         ...state,
         map: {
@@ -107,6 +118,7 @@ export const DungeonGame: React.FC = () => {
           items: nextItems,
           food: nextFood,
           traps: nextTraps,
+          artifact: nextArtifact,
         },
         party: {
           ...state.party,
@@ -119,7 +131,7 @@ export const DungeonGame: React.FC = () => {
       }
     }
 
-    // Move toward item for pickup if it is not nearby
+    // Move toward selected carryable if it is not nearby.
     const itemPath = findPathWithObstacles(
       state.party.position,
       carryable.position,
@@ -201,6 +213,27 @@ export const DungeonGame: React.FC = () => {
       }
     }
 
+    if (state.party.carriedItem.type === 'artifact') {
+      const droppedArtifact: Artifact = {
+        ...state.party.carriedItem,
+        type: 'artifact',
+        position: dropPosition,
+      }
+
+      return {
+        ...state,
+        map: {
+          ...state.map,
+          artifact: droppedArtifact,
+        },
+        party: {
+          ...state.party,
+          carriedItem: null,
+        },
+        selectedObject: droppedArtifact,
+      }
+    }
+
     const droppedItem: Item = {
       ...state.party.carriedItem,
       type: 'item',
@@ -261,6 +294,18 @@ export const DungeonGame: React.FC = () => {
 
     const interval = setInterval(() => {
       setGameState((prev) => {
+        if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+          return {
+            ...prev,
+            party: {
+              ...prev.party,
+              path: [],
+              targetPosition: null,
+            },
+            isMoving: false,
+          }
+        }
+
         const path = [...prev.party.path]
         if (path.length === 0) {
           return {
@@ -287,7 +332,7 @@ export const DungeonGame: React.FC = () => {
         }
 
         if (path.length === 0) {
-          // Reached target: stop, clear target, and auto-pick nearby item if possible.
+          // Reached target: stop, clear target, and auto-pick nearby carryable if possible.
           let updatedMap = prev.map
           let carriedItem = prev.party.carriedItem
           const finalPosition = reachedWaypoint ?? movementOrigin
@@ -298,6 +343,7 @@ export const DungeonGame: React.FC = () => {
               prev.map.items,
               prev.map.food,
               prev.map.traps,
+              prev.map.artifact,
               targetPosition,
               PLAYER_PICKUP_RADIUS
             )
@@ -314,6 +360,9 @@ export const DungeonGame: React.FC = () => {
                 traps: nearbyCarryable.type === 'trap'
                   ? prev.map.traps.filter((trap) => trap.id !== nearbyCarryable.id)
                   : prev.map.traps,
+                artifact: nearbyCarryable.type === 'artifact'
+                  ? hideArtifact(prev.map.artifact)
+                  : prev.map.artifact,
               }
               carriedItem = nearbyCarryable
             }
@@ -361,6 +410,10 @@ export const DungeonGame: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setGameState((prev) => {
+        if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+          return prev
+        }
+
         const nextGameTime = prev.gameTime + CYCLE_STEP
         const newCycleTime = (prev.cycleTime + CYCLE_STEP) % CYCLE_DURATION_SECONDS
 
@@ -538,6 +591,10 @@ export const DungeonGame: React.FC = () => {
 
   const handleCanvasClick = useCallback((clickPos: Vector2) => {
     setGameState((prev) => {
+      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+        return prev
+      }
+
       // Check if click is on any object
       for (const obj of prev.map.objects) {
         if (isPointInRect(clickPos, obj)) {
@@ -575,7 +632,7 @@ export const DungeonGame: React.FC = () => {
           return { ...prev, selectedObject: trap }
         }
       }
-      if (isPointInRect(clickPos, prev.map.artifact)) {
+      if (isArtifactOnMap(prev.map.artifact) && isPointInRect(clickPos, prev.map.artifact)) {
         return { ...prev, selectedObject: prev.map.artifact }
       }
 
@@ -638,9 +695,16 @@ export const DungeonGame: React.FC = () => {
 
   const handlePickUpSelected = useCallback(() => {
     setGameState((prev) => {
+      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+        return prev
+      }
+
       if (
         !prev.selectedObject ||
-        (prev.selectedObject.type !== 'item' && prev.selectedObject.type !== 'food' && prev.selectedObject.type !== 'trap')
+        (prev.selectedObject.type !== 'item' &&
+          prev.selectedObject.type !== 'food' &&
+          prev.selectedObject.type !== 'trap' &&
+          prev.selectedObject.type !== 'artifact')
       ) {
         return prev
       }
@@ -649,7 +713,9 @@ export const DungeonGame: React.FC = () => {
         ? prev.map.items.find((item) => item.id === prev.selectedObject?.id)
         : prev.selectedObject.type === 'food'
           ? prev.map.food.find((food) => food.id === prev.selectedObject?.id)
-          : prev.map.traps.find((trap) => trap.id === prev.selectedObject?.id && isPortableTrap(trap))
+          : prev.selectedObject.type === 'trap'
+            ? prev.map.traps.find((trap) => trap.id === prev.selectedObject?.id && isPortableTrap(trap))
+            : (isArtifactOnMap(prev.map.artifact) && prev.map.artifact.id === prev.selectedObject?.id ? prev.map.artifact : undefined)
 
       if (!selectedCarryable) {
         return prev
@@ -661,6 +727,10 @@ export const DungeonGame: React.FC = () => {
 
   const handleSetTrapSelected = useCallback(() => {
     setGameState((prev) => {
+      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+        return prev
+      }
+
       if (prev.selectedObject?.type !== 'trap') {
         return prev
       }
@@ -670,7 +740,13 @@ export const DungeonGame: React.FC = () => {
   }, [])
 
   const handleDropCarried = useCallback(() => {
-    setGameState((prev) => dropCarriedItemAtPosition(prev, prev.party.position))
+    setGameState((prev) => {
+      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+        return prev
+      }
+
+      return dropCarriedItemAtPosition(prev, prev.party.position)
+    })
   }, [])
 
   const isPointInRect = (point: Vector2, obj: GameObject): boolean => {
@@ -681,6 +757,17 @@ export const DungeonGame: React.FC = () => {
       point.y <= obj.position.y + obj.height / 2
     )
   }
+
+  const isVictory = hasArtifactExtracted(gameState.party, gameState.map.extractionZone)
+  const selectedPortableTrap = gameState.selectedObject?.type === 'trap'
+    ? gameState.map.traps.find((trap) => trap.id === gameState.selectedObject?.id && isPortableTrap(trap))
+    : null
+  const selectedArtifact =
+    gameState.selectedObject?.type === 'artifact' &&
+    isArtifactOnMap(gameState.map.artifact) &&
+    gameState.map.artifact.id === gameState.selectedObject.id
+      ? gameState.map.artifact
+      : null
 
   return (
     <div className="dungeon-game">
@@ -693,21 +780,23 @@ export const DungeonGame: React.FC = () => {
         party={gameState.party}
         cycleTime={gameState.cycleTime}
         gameTime={gameState.gameTime}
+        isVictory={isVictory}
         canPickUpSelected={
           (
             gameState.selectedObject?.type === 'item' ||
             gameState.selectedObject?.type === 'food' ||
-            (gameState.selectedObject?.type === 'trap' &&
-              Boolean(gameState.map.traps.find((trap) => trap.id === gameState.selectedObject?.id && isPortableTrap(trap))))
+            Boolean(selectedPortableTrap) ||
+            Boolean(selectedArtifact)
           ) &&
-          !gameState.party.carriedItem
+          !gameState.party.carriedItem &&
+          !isVictory
         }
         canSetTrapSelected={Boolean(
-          gameState.selectedObject?.type === 'trap' &&
-          gameState.map.traps.find((trap) => trap.id === gameState.selectedObject?.id && isPortableTrap(trap)) &&
-          distanceBetween(gameState.party.position, gameState.selectedObject.position) <= PLAYER_PICKUP_RADIUS
+          !isVictory &&
+          selectedPortableTrap &&
+          distanceBetween(gameState.party.position, selectedPortableTrap.position) <= PLAYER_PICKUP_RADIUS
         )}
-        canDropCarried={Boolean(gameState.party.carriedItem)}
+        canDropCarried={Boolean(gameState.party.carriedItem) && !isVictory}
         onPickUpSelected={handlePickUpSelected}
         onSetTrapSelected={handleSetTrapSelected}
         onDropCarried={handleDropCarried}
@@ -718,6 +807,40 @@ export const DungeonGame: React.FC = () => {
 
 function isPortableTrap(trap: Trap): boolean {
   return trap.state === 'portable'
+}
+
+function isArtifactOnMap(artifact: Artifact): boolean {
+  return artifact.position.x >= 0 && artifact.position.y >= 0
+}
+
+function hideArtifact(artifact: Artifact): Artifact {
+  return {
+    ...artifact,
+    position: {
+      x: HIDDEN_ARTIFACT_POSITION.x,
+      y: HIDDEN_ARTIFACT_POSITION.y,
+    },
+  }
+}
+
+function isPointInsideExtractionZone(point: Vector2, extractionZone: ExtractionZone): boolean {
+  return (
+    point.x >= extractionZone.position.x - extractionZone.width / 2 &&
+    point.x <= extractionZone.position.x + extractionZone.width / 2 &&
+    point.y >= extractionZone.position.y - extractionZone.height / 2 &&
+    point.y <= extractionZone.position.y + extractionZone.height / 2
+  )
+}
+
+function hasArtifactExtracted(
+  party: GameState['party'],
+  extractionZone: ExtractionZone
+): boolean {
+  if (!party.carriedItem || party.carriedItem.type !== 'artifact') {
+    return false
+  }
+
+  return isPointInsideExtractionZone(party.position, extractionZone)
 }
 
 function getTrapImmobilizeDurationSeconds(creature: Creature): number {
@@ -799,7 +922,7 @@ function syncSelectedObject(selectedObject: GameObject | null, map: GameState['m
   }
 
   if (selectedObject.type === 'artifact') {
-    return map.artifact.id === selectedObject.id ? map.artifact : null
+    return map.artifact.id === selectedObject.id && isArtifactOnMap(map.artifact) ? map.artifact : null
   }
 
   return map.objects.find((obj) => obj.id === selectedObject.id) ?? null

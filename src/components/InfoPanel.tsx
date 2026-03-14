@@ -10,6 +10,7 @@ interface InfoPanelProps {
   party: Party
   cycleTime: number
   gameTime: number
+  isVictory: boolean
   canPickUpSelected: boolean
   canSetTrapSelected: boolean
   canDropCarried: boolean
@@ -23,6 +24,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   party,
   cycleTime,
   gameTime,
+  isVictory,
   canPickUpSelected,
   canSetTrapSelected,
   canDropCarried,
@@ -46,7 +48,17 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     info += `[CARRYING] ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
     info += `[OBSERVED] ${party.observedCreatures.size} creatures\n\n`
     info += `[CONTROLS] Use [PICK UP], [SET TRAP], and [DROP] actions below\n\n`
-    info += `[PROGRESS] Searching for artifact...`
+    if (isVictory) {
+      info += `[PROGRESS] Artifact extracted. Mission complete.`
+      return info
+    }
+
+    if (party.carriedItem?.type === 'artifact') {
+      info += `[PROGRESS] Artifact secured. Reach extraction marker (*)`
+      return info
+    }
+
+    info += `[PROGRESS] Searching for artifact chamber (A)...`
     return info
   }
 

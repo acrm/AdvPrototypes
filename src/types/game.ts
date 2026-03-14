@@ -105,6 +105,12 @@ export interface Artifact extends GameObject {
   type: 'artifact'
 }
 
+export interface ExtractionZone {
+  position: Vector2
+  width: number
+  height: number
+}
+
 export interface Party {
   position: Vector2
   members: string[]
@@ -112,7 +118,7 @@ export interface Party {
   targetPosition: Vector2 | null
   observedCreatures: Map<string, number> // id -> times observed
   direction: number // angle in radians
-  carriedItem: Food | Item | Trap | null // what party is carrying
+  carriedItem: Food | Item | Trap | Artifact | null // what party is carrying
 }
 
 export interface GameMap {
@@ -126,6 +132,7 @@ export interface GameMap {
   traps: Trap[]
   spawnZones: SpawnZone[]
   artifact: Artifact
+  extractionZone: ExtractionZone
 }
 
 export interface GameState {

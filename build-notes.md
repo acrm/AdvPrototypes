@@ -26,3 +26,4 @@
 - 2026w12-0.1 — Document monster threat and aggro rules
 - 2026w12-0.2 — Tune chunk generation variation controls
 - 2026w12-0.3 — Implement trap lifecycle and placement flow
+- 2026w12-0.4 — Implement artifact extraction flow and remove placeholder traces

@@ -1,7 +1,7 @@
 {
-  "name": "interactive-ball-game",
+  "name": "dungeon-ecosystem-prototype",
   "private": true,
-  "version": "2026w12-0.3",
+  "version": "2026w12-0.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
