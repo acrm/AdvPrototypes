@@ -85,6 +85,12 @@
 
 ### Creature Ecosystem (50/50 Animal / Monster Split)
 
+**Threat Composition Rule:**
+- Monsters that occupy or influence the majority of routes to the artifact must be meaningfully dangerous to the player.
+- Decorative or low-pressure creatures may exist for ecosystem flavor, but they must not dominate the critical path population.
+- The intended experience is that path denial comes from dangerous creature presence, not just map geometry.
+- A player should usually need to interact with monsters via stealth timing, food, traps, territorial manipulation, or sleep-cycle exploitation rather than simply walking around them.
+
 #### ANIMALS (Realistic Underground/Cave Dwellers)
 1. **Giant Rats** (Common, Swarms)
    - Behavior: Nocturnal, fear light, scavengers
@@ -193,11 +199,23 @@ Each individual creature has slight variation (±5%) to make patterns non-obviou
 - Collision with creature
 - If player in creature's detection radius during PATROL state
 
+**Attack Trigger Model:**
+- **Proximity Aggro:** Some creatures attack if the player approaches too closely, even without long visual tracking.
+- **Vision Aggro:** Some creatures attack or begin pursuit when the player enters their visibility radius.
+- **Dual Aggro:** High-pressure monsters may use both rules, making them effective blockers of narrow routes.
+- Most monsters placed on critical routes should have either proximity aggro, vision aggro, or both.
+- Only a minority of creatures should be effectively non-hostile to the player by default.
+
 **Detection Consequences:**
 - Creature enters ALERT state
 - Creature becomes hostile towards player
 - Creature calls out if intelligent (goblins, drows)
 - In ALERT: creature has +2 detection radius and constant scanning
+
+**Danger Expectation by Placement:**
+- Monsters positioned on main or likely routes to the artifact are expected to threaten the player directly.
+- If a monster blocks a choke point, the player should not reliably pass through that choke point without using an interaction mechanic.
+- Safe passage should come from understanding and manipulating monster behavior, not from monsters being harmless once seen.
 
 **Selection Highlight Requirement:**
 - When player selects a creature on the map, render a translucent ring for that creature's current detection radius.
@@ -424,6 +442,10 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 - Creatures are territorial but not rigid (follow ecological rules, not invisible walls)
 
 ### Avoidance Mechanics
+
+**Core Constraint:**
+- Avoidance does not mean "walk around harmless monsters".
+- Avoidance means using timing and interaction systems to neutralize, redirect, distract, sleep-bypass, tame, or otherwise safely manage dangerous monsters.
 
 **Option A: Stealth**
 - Move slowly, minimize noise

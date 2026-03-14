@@ -35,6 +35,7 @@
 - [x] Creature detection radius (varies by species)
 - [ ] Vision mechanics: sleeping (no detection), idle (periodic checks), patrol (full awareness)
 - [ ] Player detection trigger (line of sight, noise, collision)
+- [ ] Per-species attack trigger model: proximity aggro, vision aggro, or both
 - [ ] ALERT state for creatures (heightened awareness when detecting player)
 - [ ] Detection feedback (visual alert icon or warning)
 - [x] Selected creature highlight: show translucent detection radius ring on map
@@ -121,6 +122,7 @@
 - [ ] Goblins (organized, carry to den behavior, zone: Goblin Warren)
 - [ ] Owlbear (minimal sleep, apex predator, zone: Owlbear Lair)
 - [x] Species-specific detection radius values
+- [ ] Species-specific player-threat model (harmless, proximity aggro, vision aggro, dual aggro)
 - [ ] Species-specific enrage behavior after trap escape
 
 ### Observation & Information
@@ -142,6 +144,8 @@
 - [ ] Artifact chamber location clearly marked by `A`
 - [ ] Clear path possibility to artifact despite dangers
 - [ ] Creature placement creates strategic challenge
+- [ ] Majority of likely routes to the artifact are blocked or pressured by dangerous monsters
+- [ ] "Just walk around them" must not be a reliable baseline strategy on the critical path
 
 ### Testing & Balance
 - [ ] Playtest visibility: can player observe creatures without being detected?
@@ -159,6 +163,10 @@
 - [ ] Verify selected-creature detection ring matches configured detection radius
 - [ ] Verify predator species attack only configured prey species and player
 - [ ] Verify every trap diamond color matches its target species mapping
+- [ ] Verify most critical-path monsters can threaten the player directly
+- [ ] Verify proximity-aggro monsters punish close approach even without long chase setup
+- [ ] Verify vision-aggro monsters can deny open approaches on visible routes
+- [ ] Verify at least one interaction mechanic is usually required to pass most artifact routes safely
 - [ ] Verify traps can be picked up, relocated, and armed after relocation
 - [ ] Verify artifact can be picked up, dropped, and recovered
 - [ ] Verify level completion triggers only when artifact reaches `*`
@@ -283,6 +291,8 @@
 - Selected creature visualization: always render a translucent detection-radius ring while selected
 - Layout symbol mapping: `*` for player start/extraction, `A` for artifact zone, `F/N/M/I` for food zones, and `R/S/G/Y/O/B/W/K` for trap zones
 - Portable-object rule: traps and artifact are portable and use the same single carry slot as other carried objects
+- Monster threat rule: most monsters on the critical path must be dangerous to the player by proximity aggro, vision aggro, or both
+- Critical-path design rule: majority of routes to the artifact should be monster-pressured, so interaction mechanics are required more often than pure pathing
 
 **Determinism:**
 - All creature behaviors seeded for consistency across playthroughs

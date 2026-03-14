@@ -23,3 +23,4 @@
 - 2026w11-0.5 — Implement detection UI and food-trap interactions
 - 2026w11-0.6 — Document chunk-based dungeon generation rules
 - 2026w11-0.7 — Implement chunk dungeon generation and portable traps
+- 2026w12-0.1 — Document monster threat and aggro rules
