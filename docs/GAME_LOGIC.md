@@ -218,9 +218,10 @@ Each individual creature has slight variation (±5%) to make patterns non-obviou
 **Attack Trigger Model:**
 - **Proximity Aggro:** Some creatures attack if the player approaches too closely, even without long visual tracking.
 - **Vision Aggro:** Some creatures attack or begin pursuit when the player enters their visibility radius.
-- **Dual Aggro:** High-pressure monsters may use both rules, making them effective blockers of narrow routes.
+- **Dual Aggro:** Treated as a compatibility alias for `vision` in runtime logic.
 - Most monsters placed on critical routes should have either proximity aggro, vision aggro, or both.
 - Only a minority of creatures should be effectively non-hostile to the player by default.
+- **Reaction Priority:** Avoidance reactions are resolved before pursuit/attack reactions when both are possible.
 
 **Detection Consequences:**
 - Creature enters ALERT state
@@ -285,12 +286,12 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 
 **Diet Priorities (ordered, highest to lowest):**
 - **Rat:** `food:fungi` -> `food:organic_matter` -> `food:insects`
-- **Spider:** `food:insects` -> `creature:rat` -> `creature:bat` -> `player`
+- **Spider:** `food:fungi` -> `creature:goblin` -> `food:insects` -> `creature:rat` -> `creature:bat` -> `player`
 - **Goblin:** `food:meat` -> `food:organic_matter` -> `creature:rat` -> `player`
 - **Myconid:** `food:organic_matter` -> `food:fungi`
 - **Owl:** `creature:rat` -> `creature:bat` -> `food:insects` -> `player`
 - **Bat:** `food:insects` -> `food:fungi`
-- **Wolf:** `creature:goblin` -> `creature:rat` -> `food:meat` -> `player`
+- **Wolf:** `creature:rat` -> `creature:goblin` -> `food:meat` -> `player`
 - **Kobold:** `food:meat` -> `food:insects` -> `food:organic_matter` -> `creature:rat`
 
 **Predation Rule:**

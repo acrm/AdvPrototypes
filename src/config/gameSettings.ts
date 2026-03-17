@@ -72,11 +72,11 @@ export const GAME_SETTINGS = {
     aggressionModelBySpecies: {
       rat: 'proximity',
       spider: 'vision',
-      goblin: 'dual',
+      goblin: 'vision',
       myconid: 'proximity',
       owl: 'vision',
-      bat: 'dual',
-      wolf: 'dual',
+      bat: 'vision',
+      wolf: 'vision',
       kobold: 'proximity',
     } as Record<CreatureSpecies, 'proximity' | 'vision' | 'dual'>,
     playerRelationBySpecies: {
@@ -96,8 +96,7 @@ export const GAME_SETTINGS = {
         wolf: 'avoid',
       },
       spider: {
-        rat: 'aggressive',
-        bat: 'aggressive',
+        goblin: 'aggressive',
         wolf: 'avoid',
       },
       goblin: {
@@ -120,10 +119,7 @@ export const GAME_SETTINGS = {
         wolf: 'avoid',
       },
       wolf: {
-        goblin: 'aggressive',
         rat: 'aggressive',
-        kobold: 'aggressive',
-        bat: 'aggressive',
       },
       kobold: {
         rat: 'aggressive',

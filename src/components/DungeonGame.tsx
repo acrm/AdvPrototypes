@@ -615,8 +615,10 @@ export const DungeonGame: React.FC = () => {
         // Update creature state based on sleep schedule.
         const shouldSleep = isSleeping(updatedCreature.sleepSchedule, newCycleTime)
         const inAlertRadius = isCreatureInAlertRadius(updatedCreature, prev.party.position)
+        const usesFarAggressionWake = getEffectiveAggressionModel(updatedCreature.aggression) === 'vision'
         const inFarAggressionRadius =
           updatedCreature.relation === 'aggressive' &&
+          usesFarAggressionWake &&
           isCreatureInFarBehaviorRadius(updatedCreature, prev.party.position)
         const forceAwake = (inAlertRadius || inFarAggressionRadius) && shouldSleep
 
@@ -1704,22 +1706,32 @@ function selectReactionDecision(
 }
 
 function getReactionPriority(creature: Creature, decision: ReactionDecision): number {
+  if (decision.action === 'avoid') {
+    return -2
+  }
+
   // Species that are aggressive to the player should prioritize the player over side targets.
   if (decision.targetType === 'player' && creature.relation === 'aggressive') {
     return -1
   }
 
   const isNear = decision.distance <= creature.alertRadius
-  if (decision.action === 'attack') {
-    return isNear ? 0 : 1
-  }
+  return isNear ? 0 : 1
+}
 
-  return 2
+function getEffectiveAggressionModel(aggression: Creature['aggression']): 'proximity' | 'vision' {
+  return aggression === 'proximity' ? 'proximity' : 'vision'
+}
+
+function getAggressiveReactionRadius(creature: Creature): number {
+  return getEffectiveAggressionModel(creature.aggression) === 'vision'
+    ? creature.farBehaviorRadius
+    : creature.alertRadius
 }
 
 function shouldAttackByRelation(relation: CreatureRelation, distance: number, creature: Creature): boolean {
   if (relation === 'aggressive') {
-    return distance <= creature.farBehaviorRadius
+    return distance <= getAggressiveReactionRadius(creature)
   }
 
   if (relation === 'neutral') {

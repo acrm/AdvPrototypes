@@ -582,7 +582,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'Medium (webbing can immobilize)',
     speedRange: GAME_SETTINGS.npc.speedRanges.spider,
     isNocturnal: false,
-    dietPriorities: ['food:insects', 'creature:rat', 'creature:bat', 'player'],
+    dietPriorities: ['food:fungi', 'creature:goblin', 'food:insects', 'creature:rat', 'creature:bat', 'player'],
     detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.spider,
   },
   goblin: {
@@ -657,7 +657,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
     threat: 'High (aggressive when threatened)',
     speedRange: GAME_SETTINGS.npc.speedRanges.wolf,
     isNocturnal: false,
-    dietPriorities: ['creature:goblin', 'creature:rat', 'food:meat', 'player'],
+    dietPriorities: ['creature:rat', 'creature:goblin', 'food:meat', 'player'],
     detectionRadius: GAME_SETTINGS.npc.detectionRadiusBySpecies.wolf,
   },
   kobold: {
