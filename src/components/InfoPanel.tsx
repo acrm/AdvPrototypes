@@ -5,12 +5,14 @@ import './InfoPanel.css'
 
 const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
 const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
+type TickPlaybackMode = 'paused' | 'normal' | 'full'
 
 interface InfoPanelProps {
   selectedObject: GameObject | null
   party: Party
   cycleTime: number
   gameTime: number
+  tickPlaybackMode: TickPlaybackMode
   isVictory: boolean
   isDefeated: boolean
   isRecovering: boolean
@@ -22,6 +24,9 @@ interface InfoPanelProps {
   onSetTrapSelected: () => void
   onDropCarried: () => void
   onEatCarried: () => void
+  onPauseTicks: () => void
+  onStepTick: () => void
+  onPlayFullSpeed: () => void
 }
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({
@@ -29,6 +34,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   party,
   cycleTime,
   gameTime,
+  tickPlaybackMode,
   isVictory,
   isDefeated,
   isRecovering,
@@ -40,6 +46,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   onSetTrapSelected,
   onDropCarried,
   onEatCarried,
+  onPauseTicks,
+  onStepTick,
+  onPlayFullSpeed,
 }) => {
   const getTimeOfDay = (cycle: number): string => {
     const phaseDuration = CYCLE_DURATION_SECONDS / 4
@@ -52,6 +61,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   const displayPartyInfo = (): string => {
     let info = `= PARTY STATUS =\n\n`
     info += `[TIME] ${getTimeOfDay(cycleTime)} (${Math.floor(cycleTime)}s)\n\n`
+    info += `[SIM] ${getTickPlaybackModeLabel(tickPlaybackMode)}\n\n`
     info += `[HEALTH] ${formatHealthHearts(party.health)} (${party.health}/3)\n\n`
     info += `[SPEED] ${formatPartySpeedLabel(party.health)}\n\n`
     info += `[MEMBERS] ${party.members.join(', ')}\n\n`
@@ -238,9 +248,49 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             [EAT]
           </button>
         </div>
+        <div className="debug-controls">
+          <div className="debug-controls-title">[SIM DEBUG] {getTickPlaybackModeLabel(tickPlaybackMode)}</div>
+          <div className="panel-actions debug-actions">
+            <button
+              type="button"
+              className="action-button"
+              disabled={tickPlaybackMode === 'paused'}
+              onClick={onPauseTicks}
+            >
+              [PAUSE]
+            </button>
+            <button
+              type="button"
+              className="action-button"
+              onClick={onStepTick}
+            >
+              [STEP +1]
+            </button>
+            <button
+              type="button"
+              className="action-button"
+              disabled={tickPlaybackMode === 'full'}
+              onClick={onPlayFullSpeed}
+            >
+              [FULL SPEED]
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
+}
+
+function getTickPlaybackModeLabel(mode: TickPlaybackMode): string {
+  if (mode === 'paused') {
+    return 'Paused'
+  }
+
+  if (mode === 'full') {
+    return 'Full speed'
+  }
+
+  return 'Normal'
 }
 
 function formatHealthHearts(health: number): string {

@@ -56,6 +56,7 @@ Output goes to `dist/` folder.
 - **Left click near party while carrying:** Drop carried item
 - **Left click on party while carrying:** Drop carried item at party position
 - **Info panel buttons:** `[PICK UP]` approaches selected portable object (item, food, trap, artifact), `[SET TRAP]` arms selected nearby trap, `[DROP]` drops carried object
+- **Simulation debug panel:** `[PAUSE]` freezes world ticks, `[STEP +1]` advances exactly one world tick, `[FULL SPEED]` runs ticks at maximum speed for debugging
 - **Camera:** The viewport follows the party, so the dungeon scrolls around them
 
 ## Tuning Gameplay Parameters

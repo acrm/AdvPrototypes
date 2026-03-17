@@ -39,3 +39,4 @@
 - 2026w12-0.14 — Fix aggression movement target lock and fallback
 - 2026w12-0.15 — Lock aggression target, switch only on strictly higher priority
 - 2026w12-0.16 — Fix aggression overshoot, draw selected creature path
+- 2026w12-0.17 — Add tick pause/step/full-speed debug controls

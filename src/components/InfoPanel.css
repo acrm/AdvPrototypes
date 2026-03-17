@@ -80,6 +80,25 @@
   gap: 0.6rem;
 }
 
+.debug-controls {
+  margin-top: 0.85rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed #35503b;
+}
+
+.debug-controls-title {
+  margin-bottom: 0.55rem;
+  color: #d8cb8f;
+  font-size: 0.82rem;
+  letter-spacing: 0.7px;
+}
+
+.debug-actions {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .action-button {
   flex: 1;
   padding: 0.5rem 0.6rem;
