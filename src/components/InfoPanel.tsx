@@ -99,7 +99,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     }
     
     // Show relation
-    const relationEmoji = creature.relation === 'friendly' ? '💚' : creature.relation === 'hostile' ? '❤️‍🔥' : '⚪'
+    const relationEmoji = creature.relation === 'friendly' ? '💚' : creature.relation === 'aggressive' ? '❤️‍🔥' : '⚪'
     desc += `[RELATION] ${relationEmoji} ${creature.relation.charAt(0).toUpperCase() + creature.relation.slice(1)}\n\n`
     
     desc += `[TAMING] ${creature.isFriendly ? 'Friendly' : `${creature.primingFeedings}/${FRIENDLY_FEEDINGS_REQUIRED} feedings`}\n\n`
@@ -124,7 +124,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     const sleepStart = Math.floor(creature.sleepSchedule.sleepStart)
     const sleepEnd = Math.floor(creature.sleepSchedule.sleepEnd)
     desc += `[SLEEP] ${sleepStart}-${sleepEnd}s ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
-    desc += `[DETECTION] ${getDetectionModeLabel(creature)} (${Math.floor(creature.detectionRadius)}px)\n\n`
+    desc += `[DETECTION] ${getDetectionModeLabel(creature)}\n`
+    desc += `[RADIUS NEAR] ${Math.floor(creature.alertRadius)}px\n`
+    desc += `[RADIUS FAR] ${Math.floor(creature.farBehaviorRadius)}px\n`
+    desc += `[VISION] ${Math.floor(creature.detectionRadius)}px\n\n`
     
     if (creature.behavior) desc += `[BEHAVIOR] ${creature.behavior}\n`
     if (creature.diet) desc += `[DIET] ${creature.diet}\n`

@@ -777,6 +777,8 @@ function createCreatureFromZone(zone: SpawnZone, obstacles: GameMap['objects'], 
   const nextSpawnCount = zone.spawnCount + 1
   const speed = getRandomFloat(template.speedRange[0], template.speedRange[1])
   const state = isSleeping(sleepSchedule, cycleTime) ? 'sleeping' : 'idle'
+  const nearReactionRadius = LAYOUT_REGION_SIZE * GAME_SETTINGS.npc.alertRadiusMultiplier
+  const farBehaviorRadius = LAYOUT_REGION_SIZE * GAME_SETTINGS.npc.farBehaviorRadiusMultiplier
 
   return {
     id: `${zone.id}_spawn_${nextSpawnCount}`,
@@ -803,10 +805,14 @@ function createCreatureFromZone(zone: SpawnZone, obstacles: GameMap['objects'], 
     eatingUntil: null,
     detectionRadius: template.detectionRadius,
     alertUntil: null,
-    alertRadius: template.detectionRadius * GAME_SETTINGS.npc.alertRadiusMultiplier,
-    farBehaviorRadius: template.detectionRadius * GAME_SETTINGS.npc.farBehaviorRadiusMultiplier,
-    relation: 'neutral',
+    alertRadius: nearReactionRadius,
+    farBehaviorRadius,
+    relation: GAME_SETTINGS.npc.playerRelationBySpecies[template.species],
     aggression: GAME_SETTINGS.npc.aggressionModelBySpecies[template.species],
+    aggressionTargetId: null,
+    aggressionTargetType: null,
+    aggressionBoostUntil: null,
+    aggressionBoostCooldownUntil: null,
     sleepSchedule,
     ...createIdleTurnTiming(gameTime),
     carriedFood: null,

@@ -34,3 +34,4 @@
 - 2026w12-0.9 — Implement party health and safe food consumption
 - 2026w12-0.10 — Implement ALERT state and dual-radius detection system
 - 2026w12-0.11 — Fix full-screen damage flash overlay
+- 2026w12-0.12 — Fix chunk-based near and far creature radii

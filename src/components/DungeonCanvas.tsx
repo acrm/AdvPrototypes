@@ -88,7 +88,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
         continue
       }
 
-      drawDiamond(ctx, trap.position, trap.color, trap.width / 2)
+      drawTrap(ctx, trap)
     }
 
     // Draw artifact (highlight circle)
@@ -133,19 +133,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
 
     const selectedCreature = getSelectedCreature(gameState)
     if (selectedCreature) {
-      ctx.fillStyle = 'rgba(255, 200, 120, 0.08)'
-      ctx.strokeStyle = 'rgba(255, 220, 160, 0.4)'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.arc(
-        selectedCreature.position.x,
-        selectedCreature.position.y,
-        selectedCreature.detectionRadius,
-        0,
-        Math.PI * 2
-      )
-      ctx.fill()
-      ctx.stroke()
+      drawSelectedCreatureRadii(ctx, selectedCreature)
     }
 
     // Draw party path (dashed line)
@@ -324,6 +312,30 @@ function getSelectedCreature(gameState: GameState): Creature | null {
   return gameState.map.creatures.find((creature) => creature.id === gameState.selectedObject?.id) || null
 }
 
+function drawSelectedCreatureRadii(ctx: CanvasRenderingContext2D, creature: Creature) {
+  ctx.save()
+
+  // Far behavior radius: 1.5 x chunk size.
+  ctx.fillStyle = 'rgba(255, 200, 120, 0.08)'
+  ctx.strokeStyle = 'rgba(255, 220, 160, 0.4)'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.arc(creature.position.x, creature.position.y, creature.farBehaviorRadius, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
+
+  // Near reaction radius: 0.5 x chunk size.
+  ctx.fillStyle = 'rgba(255, 120, 120, 0.1)'
+  ctx.strokeStyle = 'rgba(255, 160, 160, 0.65)'
+  ctx.lineWidth = 1.75
+  ctx.beginPath()
+  ctx.arc(creature.position.x, creature.position.y, creature.alertRadius, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
+
+  ctx.restore()
+}
+
 function drawDiamond(
   ctx: CanvasRenderingContext2D,
   position: Vector2,
@@ -339,6 +351,36 @@ function drawDiamond(
   ctx.lineTo(position.x - radius, position.y)
   ctx.closePath()
   ctx.fill()
+  ctx.restore()
+}
+
+function drawTrap(ctx: CanvasRenderingContext2D, trap: GameState['map']['traps'][number]) {
+  const radius = trap.width / 2
+
+  if (trap.state === 'portable') {
+    drawDiamond(ctx, trap.position, trap.color, radius)
+    return
+  }
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(trap.position.x, trap.position.y - radius)
+  ctx.lineTo(trap.position.x + radius, trap.position.y)
+  ctx.lineTo(trap.position.x, trap.position.y + radius)
+  ctx.lineTo(trap.position.x - radius, trap.position.y)
+  ctx.closePath()
+
+  if (trap.state === 'arming') {
+    ctx.strokeStyle = 'rgba(255, 235, 140, 0.9)'
+    ctx.setLineDash([3, 3])
+    ctx.lineWidth = 2
+  } else {
+    ctx.strokeStyle = 'rgba(255, 248, 220, 0.95)'
+    ctx.lineWidth = 2.5
+  }
+
+  ctx.stroke()
+  ctx.setLineDash([])
   ctx.restore()
 }
 
@@ -366,7 +408,7 @@ function drawExtractionZone(ctx: CanvasRenderingContext2D, gameState: GameState)
 }
 
 function isTrapVisible(trap: GameState['map']['traps'][number]): boolean {
-  return trap.state === 'portable'
+  return trap.state === 'portable' || trap.state === 'arming' || trap.state === 'armed'
 }
 
 function drawCreatureConditionOverlay(ctx: CanvasRenderingContext2D, creature: Creature) {
