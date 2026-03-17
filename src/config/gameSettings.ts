@@ -8,7 +8,7 @@ export const GAME_SETTINGS = {
     layoutRegionScale: 5,
     chunkGeneration: {
       // 0 = strict square masks (25/25 for walls, fully open corridors), 1 = maximum variation.
-      squareDeviationFactor: 0.7,
+      squareDeviationFactor: 0.9,
       wall: {
         sideRecessChanceAtMaxDeviation: 0.95,
         edgeNibbleChanceAtMaxDeviation: 0.75,
