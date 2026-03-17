@@ -1574,14 +1574,18 @@ function resolveCreatureReaction(
   }
 
   if (chasePath.length === 0) {
-    return {
-      ...chasingCreature,
-      state: 'idle',
-      waypoints: [],
-    }
+    return moveCreatureDirectly(chasingCreature, reaction.targetPosition, map, speedMultiplier)
   }
 
-  return moveCreatureAlongWaypoints(chasingCreature, chasePath, map, speedMultiplier)
+  const movedByPath = moveCreatureAlongWaypoints(chasingCreature, chasePath, map, speedMultiplier)
+  if (
+    distanceBetweenPositions(movedByPath.position, creature.position) <= 0.001 &&
+    distanceBetweenPositions(reaction.targetPosition, creature.position) > creature.width / 2
+  ) {
+    return moveCreatureDirectly(chasingCreature, reaction.targetPosition, map, speedMultiplier)
+  }
+
+  return movedByPath
 }
 
 function selectReactionDecision(
@@ -1648,6 +1652,19 @@ function selectReactionDecision(
     return null
   }
 
+  // Keep current aggression target while it remains valid to avoid rapid target switching.
+  if (creature.aggressionTargetId !== null && creature.aggressionTargetType !== null) {
+    const currentTargetDecision = decisions.find(
+      (decision) =>
+        decision.targetId === creature.aggressionTargetId &&
+        decision.targetType === creature.aggressionTargetType
+    )
+
+    if (currentTargetDecision) {
+      return currentTargetDecision
+    }
+  }
+
   decisions.sort((a, b) => {
     const priorityA = getReactionPriority(creature, a)
     const priorityB = getReactionPriority(creature, b)
@@ -1661,6 +1678,11 @@ function selectReactionDecision(
 }
 
 function getReactionPriority(creature: Creature, decision: ReactionDecision): number {
+  // Species that are aggressive to the player should prioritize the player over side targets.
+  if (decision.targetType === 'player' && creature.relation === 'aggressive') {
+    return -1
+  }
+
   const isNear = decision.distance <= creature.alertRadius
   if (decision.action === 'attack') {
     return isNear ? 0 : 1
@@ -1749,4 +1771,52 @@ function findFleePosition(creature: Creature, threatPosition: Vector2, map: Game
   }
 
   return creature.position
+}
+
+function moveCreatureDirectly(
+  creature: Creature,
+  targetPosition: Vector2,
+  map: GameState['map'],
+  speedMultiplier: number = 1
+): Creature {
+  const angle = Math.atan2(targetPosition.y - creature.position.y, targetPosition.x - creature.position.x)
+  const baseSpeed = creature.speed * speedMultiplier
+  const stepVariants = [1, 0.66, 0.4, 0.2]
+
+  for (const stepScale of stepVariants) {
+    const step = baseSpeed * stepScale
+    if (step <= 0) {
+      continue
+    }
+
+    const candidate = {
+      x: creature.position.x + Math.cos(angle) * step,
+      y: creature.position.y + Math.sin(angle) * step,
+    }
+
+    const clamped = {
+      x: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.width - NPC_BOUNDARY_PADDING, candidate.x)),
+      y: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.height - NPC_BOUNDARY_PADDING, candidate.y)),
+    }
+
+    if (!isPositionWalkable(clamped, map.objects)) {
+      continue
+    }
+
+    return {
+      ...creature,
+      position: clamped,
+      direction: angle,
+      state: 'patrol',
+      waypoints: [],
+    }
+  }
+
+  // Keep facing the target even if no step is currently available.
+  return {
+    ...creature,
+    direction: angle,
+    state: 'patrol',
+    waypoints: [],
+  }
 }

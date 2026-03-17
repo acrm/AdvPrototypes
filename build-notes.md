@@ -36,3 +36,4 @@
 - 2026w12-0.11 — Fix full-screen damage flash overlay
 - 2026w12-0.12 — Fix chunk-based near and far creature radii
 - 2026w12-0.13 — Tune creature relations and visible placed traps
+- 2026w12-0.14 — Fix aggression movement target lock and fallback
