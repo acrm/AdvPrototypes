@@ -3,6 +3,8 @@
 ## Operational Rules
 - User-facing chat replies must be in Russian.
 - File content (code/docs/config) must be in English.
+- If you are operating as a documentation agent, do not modify code files; edit documentation/instruction files only.
+- In documentation-agent mode, any request that needs code changes must be blocked until the user explicitly switches to an implementation role.
 - After any tracked file change, run exactly one version bump command:
   - `npm run bump:build -- --desc "Short English summary"`
   - `npm run bump:minor -- --desc "Short English summary"`

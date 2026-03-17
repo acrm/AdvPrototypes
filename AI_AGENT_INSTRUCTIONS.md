@@ -4,6 +4,14 @@
 - User-facing chat replies: **Russian**
 - File content (code/docs/config): **English only**
 
+## Documentation Agent Mode (Hard Constraint)
+
+When the agent is explicitly assigned as a **documentation agent**:
+- Do not edit any code files (for example: `src/**`, `scripts/**`, build/runtime configs, tests, or assets used by the app runtime).
+- Limit file edits to documentation and instruction content only (for example: `docs/**`, `README.md`, `AI_AGENT_INSTRUCTIONS.md`, `.github/copilot-instructions.md`).
+- If the request requires code changes, stop and ask for explicit role switch or handoff to an implementation agent.
+- Before running a bump command, ensure staged files are documentation/instruction files only.
+
 ## Versioning Strategy
 
 Version format: `<weekCode>-<minor>.<build>`

@@ -161,7 +161,8 @@
 1. **SLEEPING** - Completely motionless, unaware of surroundings
    - Safe to pass nearby
    - Identified by: zero movement and no rotation (same visual shape)
-   - Cannot react to player actions
+   - Ignores far-range stimuli
+   - If an enemy enters the near reaction radius, the creature immediately wakes and reacts
 
 2. **IDLE** - Awake but stationary, rotates to a random direction every 1-2 seconds
    - Aware but not actively hunting
@@ -185,9 +186,22 @@ Each individual creature has slight variation (±5%) to make patterns non-obviou
 
 **Creature Vision Mechanics:**
 - Each creature species has detection radius (varies by type)
-- **SLEEPING creatures:** Cannot see, cannot be triggered
+- **SLEEPING creatures:** Ignore far-range behavior checks; only near-reaction intrusion can wake them
 - **IDLE creatures:** Limited vision cone, see only when rotating view in that direction (periodic checks)
 - **PATROL creatures:** Full 360° awareness, constant vigilance
+
+**Dual Creature-vs-Target Radius Model:**
+- Every creature uses two interaction radii relative to chunk size.
+- **Near Reaction Radius:** `0.5 x chunk_size` (half-chunk).
+- **Far Behavior Radius:** `1.5 x chunk_size` (one-and-a-half chunks).
+- Near radius applies even while sleeping: entering it forces wake-up and immediate reaction.
+- Far radius applies only while awake (IDLE or PATROL): creature adjusts spacing and intent using relation settings.
+
+**Relation-Driven Distance Behavior (Awake Only):**
+- **Hostile relation:** close distance to engage or prepare attack.
+- **Avoid/Fear relation:** increase distance and seek separation.
+- **Neutral relation:** keep loose spacing and no forced engagement.
+- If both a player and other creatures are valid targets, target choice still follows the ordered priority table.
 
 **Detection by Species:**
 - **Rats:** Close vision (fear-based, paranoid), poor at distance
@@ -282,6 +296,11 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 **Predation Rule:**
 - Predator-capable species can treat prey creatures and the player as diet targets.
 - `player` as a diet target is species-dependent and lower priority than preferred natural food in most cases.
+
+**Inter-Creature Attack Rule:**
+- Creatures must attack other creatures when those targets are valid enemies in `dietPriorities` and are reachable by current detection logic.
+- Target resolution always uses the first valid entry in the ordered priority table.
+- Near-radius contact has priority as a wake/react trigger; far-radius behavior controls approach or retreat while awake.
 
 **Visual Indicator:** Food being carried displays as small object at creature's forward-pointing triangle vertex.
 

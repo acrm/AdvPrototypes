@@ -33,6 +33,9 @@
 
 ### Visibility & Detection System
 - [x] Creature detection radius (varies by species)
+- [ ] Dual detection radii per creature: near reaction radius = `0.5 * chunk_size`, far behavior radius = `1.5 * chunk_size`
+- [ ] Sleeping wake trigger: if enemy enters near reaction radius, creature wakes and reacts immediately
+- [ ] Awake far-radius behavior: approach or increase distance based on relation settings
 - [ ] Vision mechanics: sleeping (no detection), idle (periodic checks), patrol (full awareness)
 - [ ] Player detection trigger (line of sight, noise, collision)
 - [ ] Per-species attack trigger model: proximity aggro, vision aggro, or both
@@ -163,7 +166,10 @@
 - [ ] Verify food respawning in zones
 - [ ] Verify player cannot eat dangerous food (meat, hallucinogenic fungi)
 - [ ] Verify selected-creature detection ring matches configured detection radius
+- [ ] Verify near reaction radius equals half a chunk and wakes sleeping creatures on enemy intrusion
+- [ ] Verify far behavior radius equals one-and-a-half chunks and only affects awake creatures
 - [ ] Verify predator species attack only configured prey species and player
+- [ ] Verify creature-vs-creature attacks always respect ordered `dietPriorities`
 - [ ] Verify every trap diamond color matches its target species mapping
 - [ ] Verify most critical-path monsters can threaten the player directly
 - [ ] Verify proximity-aggro monsters punish close approach even without long chase setup
@@ -193,6 +199,8 @@
 
 ### Creature Interactions
 - [ ] Predator/prey dynamics (spiders hunt insects, owlbear hunts all)
+- [ ] Inter-creature combat target selection must follow ordered `dietPriorities`
+- [ ] If multiple enemy targets are available, pick the first valid priority target
 - [ ] Territorial disputes between creatures (visible conflicts)
 - [ ] Feeding conflicts (competition for resources creates temporary lulls)
 - [ ] Pack/swarm behavior (rats swarm when alert, goblins coordinate)
@@ -294,10 +302,12 @@
   - Rat `#f4d03f`, Spider `#8e44ad`, Goblin `#2ecc71`, Myconid `#9b59b6`
   - Owl `#f39c12`, Bat `#34495e`, Wolf `#5dade2`, Kobold `#e67e22`
 - Selected creature visualization: always render a translucent detection-radius ring while selected
+- Dual-radius detection rule: near reaction radius `0.5 * chunk_size` (wake + react even from sleep), far behavior radius `1.5 * chunk_size` (awake distance control by relation)
 - Layout symbol mapping: `*` for player start/extraction candidates and `A` for artifact candidates; the current map contains three of each and activates exactly one random candidate of each kind per run
 - Portable-object rule: traps and artifact are portable and use the same single carry slot as other carried objects
 - Monster threat rule: most monsters on the critical path must be dangerous to the player by proximity aggro, vision aggro, or both
 - Critical-path design rule: majority of routes to the artifact should be monster-pressured, so interaction mechanics are required more often than pure pathing
+- Inter-creature aggression rule: creature-vs-creature attack targets are selected by ordered `dietPriorities`, using the first valid target
 
 **Determinism:**
 - All creature behaviors seeded for consistency across playthroughs

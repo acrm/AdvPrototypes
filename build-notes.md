@@ -30,3 +30,4 @@
 - 2026w12-0.5 — Remove final legacy placeholder literals
 - 2026w12-0.6 — Implement creature feeding, priming, and friendly behavior
 - 2026w12-0.7 — Randomize start and artifact candidate chunks
+- 2026w12-0.8 — Enforce doc-agent mode and update detection rules
