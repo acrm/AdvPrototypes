@@ -1,4 +1,4 @@
-import { CreatureSpecies, FoodType, ItemTemplate } from '../types/game'
+import { CreatureRelation, CreatureSpecies, FoodType, ItemTemplate } from '../types/game'
 
 type RangeTuple = [number, number]
 
@@ -79,6 +79,61 @@ export const GAME_SETTINGS = {
       wolf: 'dual',
       kobold: 'proximity',
     } as Record<CreatureSpecies, 'proximity' | 'vision' | 'dual'>,
+    playerRelationBySpecies: {
+      rat: 'neutral',
+      spider: 'aggressive',
+      goblin: 'aggressive',
+      myconid: 'neutral',
+      owl: 'neutral',
+      bat: 'aggressive',
+      wolf: 'aggressive',
+      kobold: 'neutral',
+    } as Record<CreatureSpecies, CreatureRelation>,
+    speciesRelationMatrix: {
+      rat: {
+        spider: 'avoid',
+        owl: 'avoid',
+        wolf: 'avoid',
+      },
+      spider: {
+        rat: 'aggressive',
+        bat: 'aggressive',
+        wolf: 'avoid',
+      },
+      goblin: {
+        rat: 'aggressive',
+        myconid: 'aggressive',
+        wolf: 'avoid',
+      },
+      myconid: {
+        goblin: 'avoid',
+        wolf: 'avoid',
+      },
+      owl: {
+        rat: 'aggressive',
+        bat: 'aggressive',
+        wolf: 'avoid',
+      },
+      bat: {
+        owl: 'avoid',
+        spider: 'avoid',
+        wolf: 'avoid',
+      },
+      wolf: {
+        goblin: 'aggressive',
+        rat: 'aggressive',
+        kobold: 'aggressive',
+        bat: 'aggressive',
+      },
+      kobold: {
+        rat: 'aggressive',
+        spider: 'avoid',
+        wolf: 'avoid',
+      },
+    } as Record<CreatureSpecies, Partial<Record<CreatureSpecies, CreatureRelation>>>,
+    aggressionBoostMultiplier: 3,
+    aggressionBoostDurationSeconds: 2,
+    aggressionBoostCooldownSeconds: 2,
     speedRanges: {
       rat: [0.4, 0.7],
       spider: [0.3, 0.6],

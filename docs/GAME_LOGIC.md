@@ -357,12 +357,13 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 **Setting a Trap:**
 - Player carries trap item (must have found, looted, or relocated one)
 - Click ground location → `[Set Trap]`
-- Trap becomes invisible/hidden for 2 seconds
+- Trap becomes visible as an outline while arming/armed
 - When creature walks over armed trap → creature is caught
 
 **Portable Trap Rule:**
 - Spawned trap objects are portable until armed.
 - The player can pick up a trap, carry it elsewhere, drop it, and only then arm it.
+- Armed traps can be reclaimed (picked up) by the player.
 
 **Trap Spawn Visual Requirement:**
 - Trap objects spawned from map regions are rendered as colored diamonds.

@@ -35,13 +35,13 @@
 - [x] Creature detection radius (varies by species)
 - [x] Dual detection radii per creature: near reaction radius = `0.5 * chunk_size`, far behavior radius = `1.5 * chunk_size`
 - [x] Sleeping wake trigger: if enemy enters near reaction radius, creature wakes and reacts immediately
-- [ ] Awake far-radius behavior: approach or increase distance based on relation settings
+- [x] Awake far-radius behavior: approach or increase distance based on relation settings
 - [ ] Vision mechanics: sleeping (no detection), idle (periodic checks), patrol (full awareness)
 - [ ] Player detection trigger (line of sight, noise, collision)
 - [x] Per-species attack trigger model: proximity aggro, vision aggro, or both
 - [x] ALERT state for creatures (heightened awareness when detecting player)
 - [x] Detection feedback (visual alert icon or warning)
-- [x] Selected creature highlight: show translucent detection radius ring on map
+- [x] Selected creature highlight: show near/far reaction radii on map
 
 ### Territorial System
 - [x] Spawn zones defined in dungeon layout (zone types, not individual creatures)
@@ -75,6 +75,8 @@
 - [ ] Friendly creature benefits: safe observation, no attacks, spreads non-aggression
 - [x] Trap map objects spawn as diamonds (not circles)
 - [x] Trap color encodes target species (fixed palette)
+- [x] Placed traps stay visible via contour rendering
+- [x] Player can reclaim armed traps
 
 ### Movement & Sound System
 - [ ] Speed tiers: fast (noisy), medium (normal), slow (quiet)

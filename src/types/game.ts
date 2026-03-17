@@ -11,9 +11,11 @@ export type CreatureState = 'sleeping' | 'idle' | 'patrol'
 
 export type CreatureCondition = 'normal' | 'trapped' | 'enraged'
 
-export type CreatureRelation = 'friendly' | 'neutral' | 'hostile'
+export type CreatureRelation = 'friendly' | 'neutral' | 'aggressive' | 'avoid'
 
 export type CreatureAggression = 'proximity' | 'vision' | 'dual'
+
+export type AggressionTargetType = 'player' | 'creature'
 
 export type FoodType = 'fungi' | 'organic_matter' | 'meat' | 'insects'
 
@@ -69,8 +71,12 @@ export interface Creature extends GameObject {
   alertUntil: number | null // absolute game time when creature's ALERT state ends
   alertRadius: number // dual-radius: 0.5× chunk for immediate wake/reaction
   farBehaviorRadius: number // dual-radius: 1.5× chunk for far-behavior adjustments
-  relation: CreatureRelation // player relationship: friendly/neutral/hostile
+  relation: CreatureRelation // player relationship: friendly/neutral/aggressive/avoid
   aggression: CreatureAggression // aggro model: proximity/vision/dual
+  aggressionTargetId: string | null // tracked target id while reaction behavior is active
+  aggressionTargetType: AggressionTargetType | null // tracked target type
+  aggressionBoostUntil: number | null // absolute game time when sprint burst ends
+  aggressionBoostCooldownUntil: number | null // absolute game time when next burst may begin
   sleepSchedule: SleepSchedule // sleep/wake pattern
   idleTurnInterval: number // seconds between idle turns (1-2s)
   nextIdleTurnAt: number // absolute game time when next idle turn happens
