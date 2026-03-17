@@ -3,6 +3,7 @@ import { Artifact, Creature, CreatureRelation, ExtractionZone, GameState, Vector
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, GRID_SIZE, isPositionWalkable } from '../systems/Pathfinding'
 import { createMovementBounds, stepAlongWaypoints, stepTowardsTarget } from '../systems/MovementSystem'
+import { resolvePredationTick } from '../systems/PredationSystem'
 import { GAME_SETTINGS } from '../config/gameSettings'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
@@ -835,10 +836,15 @@ export const DungeonGame: React.FC = () => {
 
       const activeTraps = updatedTraps.filter((trap) => !triggeredTrapIds.has(trap.id))
 
+      const predationResolution = resolvePredationTick(trappedCreatures, nextGameTime, {
+        feedingDurationSeconds: getFeedingDurationSeconds('meat'),
+      })
+      const creaturesAfterPredation = predationResolution.creatures
+
       const updatedMap = refreshSpawnZones(
         {
           ...prev.map,
-          creatures: trappedCreatures,
+          creatures: creaturesAfterPredation,
           food: availableFood,
           traps: activeTraps,
         },
@@ -858,7 +864,7 @@ export const DungeonGame: React.FC = () => {
       }
       let nextIsMoving = prev.isMoving
 
-      const collidingThreat = trappedCreatures.find((creature) =>
+      const collidingThreat = creaturesAfterPredation.find((creature) =>
         isCreatureDamagingOnCollision(creature, nextParty.position)
       )
 
