@@ -134,6 +134,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     const selectedCreature = getSelectedCreature(gameState)
     if (selectedCreature) {
       drawSelectedCreatureRadii(ctx, selectedCreature)
+      drawSelectedCreaturePath(ctx, selectedCreature, gameState)
     }
 
     // Draw party path (dashed line)
@@ -310,6 +311,51 @@ function getSelectedCreature(gameState: GameState): Creature | null {
   }
 
   return gameState.map.creatures.find((creature) => creature.id === gameState.selectedObject?.id) || null
+}
+
+function drawSelectedCreaturePath(ctx: CanvasRenderingContext2D, creature: Creature, gameState: GameState) {
+  if (creature.waypoints.length === 0) return
+
+  ctx.save()
+  ctx.strokeStyle = 'rgba(255, 220, 80, 0.7)'
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([4, 4])
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  ctx.moveTo(creature.position.x, creature.position.y)
+  for (const wp of creature.waypoints) {
+    ctx.lineTo(wp.x, wp.y)
+  }
+  ctx.stroke()
+
+  // Draw a small target dot at the final waypoint.
+  const last = creature.waypoints[creature.waypoints.length - 1]
+  ctx.setLineDash([])
+  ctx.fillStyle = 'rgba(255, 220, 80, 0.85)'
+  ctx.beginPath()
+  ctx.arc(last.x, last.y, 4, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Draw a small marker on the actual aggression target if it's a creature.
+  if (creature.aggressionTargetType === 'creature' && creature.aggressionTargetId !== null) {
+    const target = gameState.map.creatures.find((c) => c.id === creature.aggressionTargetId)
+    if (target) {
+      ctx.strokeStyle = 'rgba(255, 160, 60, 0.9)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(target.position.x, target.position.y, 20, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+  } else if (creature.aggressionTargetType === 'player') {
+    ctx.strokeStyle = 'rgba(255, 160, 60, 0.9)'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.arc(gameState.party.position.x, gameState.party.position.y, 24, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+
+  ctx.restore()
 }
 
 function drawSelectedCreatureRadii(ctx: CanvasRenderingContext2D, creature: Creature) {

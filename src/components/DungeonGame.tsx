@@ -1787,12 +1787,16 @@ function moveCreatureDirectly(
   map: GameState['map'],
   speedMultiplier: number = 1
 ): Creature {
-  const angle = Math.atan2(targetPosition.y - creature.position.y, targetPosition.x - creature.position.x)
+  const dx = targetPosition.x - creature.position.x
+  const dy = targetPosition.y - creature.position.y
+  const distanceToTarget = Math.hypot(dx, dy)
+  const angle = Math.atan2(dy, dx)
   const baseSpeed = creature.speed * speedMultiplier
   const stepVariants = [1, 0.66, 0.4, 0.2]
 
   for (const stepScale of stepVariants) {
-    const step = baseSpeed * stepScale
+    // Cap step at distance so we never overshoot the target.
+    const step = Math.min(baseSpeed * stepScale, distanceToTarget)
     if (step <= 0) {
       continue
     }
