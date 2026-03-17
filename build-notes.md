@@ -33,3 +33,4 @@
 - 2026w12-0.8 — Enforce doc-agent mode and update detection rules
 - 2026w12-0.9 — Implement party health and safe food consumption
 - 2026w12-0.10 — Implement ALERT state and dual-radius detection system
+- 2026w12-0.11 — Fix full-screen damage flash overlay

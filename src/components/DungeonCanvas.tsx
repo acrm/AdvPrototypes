@@ -200,15 +200,6 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       }
     }
 
-    // Draw damage flash visual effect
-    if (gameState.party.damageFlashUntil !== null && gameState.gameTime < gameState.party.damageFlashUntil) {
-      const flashProgress =
-        (gameState.party.damageFlashUntil - gameState.gameTime) / 0.4
-      const intensity = Math.min(1, flashProgress * 2) // peak at start, fade quickly
-      ctx.fillStyle = `rgba(255, 100, 100, ${intensity * 0.6})`
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-    }
-
     // Draw floating damage number
     if (gameState.party.lastDamageTaken > 0 && gameState.party.damageFlashUntil !== null && gameState.gameTime < gameState.party.damageFlashUntil) {
       const damageNumberProgress =
@@ -226,6 +217,15 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     ctx.restore()
+
+    // Draw damage flash in screen-space so it always covers the full viewport
+    if (gameState.party.damageFlashUntil !== null && gameState.gameTime < gameState.party.damageFlashUntil) {
+      const flashProgress =
+        (gameState.party.damageFlashUntil - gameState.gameTime) / 0.4
+      const intensity = Math.min(1, flashProgress * 2) // peak at start, fade quickly
+      ctx.fillStyle = `rgba(255, 100, 100, ${intensity * 0.6})`
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
   }, [gameState])
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
