@@ -116,4 +116,20 @@ export const GAME_SETTINGS = {
       insects: 2,
     } as Record<FoodType, number>,
   },
+  health: {
+    maxHearts: 3,
+    collisionDamage: 1,
+    collisionDamageCooldownSeconds: 1.25,
+    recoveryDurationSeconds: 5,
+    safeFoodTypes: ['fungi', 'organic_matter', 'insects'] as FoodType[],
+    dangerousFoodDamageByType: {
+      meat: 1,
+    } as Partial<Record<FoodType, number>>,
+    speedMultiplierByHealth: {
+      3: 1,
+      2: 0.75,
+      1: 0.5,
+      0: 0,
+    } as Record<number, number>,
+  },
 } as const

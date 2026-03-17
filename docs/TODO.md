@@ -51,15 +51,15 @@
 - [ ] Territorial conflict simulation (when creatures invade territories)
 
 ### Player Health System
-- [ ] 3-heart health display (one per party member)
+- [x] 3-heart health display (one per party member)
 - [ ] Damage mechanic (creature collision, environmental hazard)
-- [ ] Speed penalty based on health:
+- [x] Speed penalty based on health:
   - 3 Health: Normal speed
   - 2 Health: 25% slower
   - 1 Health: 50% slower
-- [ ] Health recovery: eating safe food restores 1 health
-- [ ] Loss condition: 0 Health = game over
-- [ ] Safe food types: fungi, organic matter, insects
+- [x] Health recovery: eating safe food restores 1 health
+- [x] Loss condition: 0 Health = game over
+- [x] Safe food types: fungi, organic matter, insects
 - [ ] Dangerous food types: meat (spoiled), certain fungi (hallucinogenic)
 
 ### Trapping & Domestication Mechanics
@@ -116,10 +116,10 @@
 - [x] "Examine" action for objects
 - [x] Party inventory (one item max)
 - [x] Visual feedback for held items at party direction
-- [ ] "Eat" action for safe food items
+- [x] "Eat" action for safe food items
 - [ ] "Eat" action feedback (animation, health gain message)
-- [ ] Health indicator (3 hearts) displayed in UI
-- [ ] Speed penalty visualization when wounded
+- [x] Health indicator (3 hearts) displayed in UI
+- [x] Speed penalty visualization when wounded
 
 ### Creature Species (MVP)
 - [ ] Giant Rats (nocturnal sleep pattern, fungi/organic preference, zone: Rat Warren)
@@ -139,7 +139,7 @@
 - [x] Info panel shows creature detection status
 - [x] Visual indicator for friendly creatures
 - [x] Visual indicator for enraged creatures
-- [ ] Health heart display in UI
+- [x] Health heart display in UI
 
 ### Artifact & Objective
 - [ ] Owlbear lair location with artifact

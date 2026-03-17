@@ -125,6 +125,9 @@ export interface Party {
   observedCreatures: Map<string, number> // id -> times observed
   direction: number // angle in radians
   carriedItem: Food | Item | Trap | Artifact | null // what party is carrying
+  health: number // 0-3 hearts
+  lastDamageAt: number | null // absolute game time of latest received damage
+  recoveringUntil: number | null // recovery lock after eating
 }
 
 export interface GameMap {

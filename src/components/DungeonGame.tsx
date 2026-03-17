@@ -23,6 +23,13 @@ const TRAP_ARM_DELAY_SECONDS = GAME_SETTINGS.trap.armDelaySeconds
 const [TRAP_IMMOBILIZE_MIN_SECONDS, TRAP_IMMOBILIZE_MAX_SECONDS] = GAME_SETTINGS.trap.immobilizeDurationRangeSeconds
 const FOOD_FEEDING_DURATION_SECONDS = GAME_SETTINGS.food.feedingDurationSecondsByType
 const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
+const MAX_HEARTS = GAME_SETTINGS.health.maxHearts
+const COLLISION_DAMAGE = GAME_SETTINGS.health.collisionDamage
+const COLLISION_DAMAGE_COOLDOWN = GAME_SETTINGS.health.collisionDamageCooldownSeconds
+const RECOVERY_DURATION_SECONDS = GAME_SETTINGS.health.recoveryDurationSeconds
+const SAFE_FOOD_TYPES = new Set(GAME_SETTINGS.health.safeFoodTypes)
+const DANGEROUS_FOOD_DAMAGE = GAME_SETTINGS.health.dangerousFoodDamageByType
+const SPEED_MULTIPLIER_BY_HEALTH = GAME_SETTINGS.health.speedMultiplierByHealth
 const HIDDEN_ARTIFACT_POSITION = GAME_SETTINGS.world.hiddenArtifactPosition
 
 type Carryable = Item | Food | Trap | Artifact
@@ -40,6 +47,9 @@ export const DungeonGame: React.FC = () => {
         observedCreatures: new Map(),
         direction: -Math.PI / 2, // pointing up initially
         carriedItem: null,
+        health: MAX_HEARTS,
+        lastDamageAt: null,
+        recoveringUntil: null,
       },
       selectedObject: null,
       gameTime: 0,
@@ -332,6 +342,30 @@ export const DungeonGame: React.FC = () => {
           }
         }
 
+        if (prev.party.health <= 0) {
+          return {
+            ...prev,
+            party: {
+              ...prev.party,
+              path: [],
+              targetPosition: null,
+            },
+            isMoving: false,
+          }
+        }
+
+        if (prev.party.recoveringUntil !== null && prev.gameTime < prev.party.recoveringUntil) {
+          return {
+            ...prev,
+            party: {
+              ...prev.party,
+              path: [],
+              targetPosition: null,
+            },
+            isMoving: false,
+          }
+        }
+
         const path = [...prev.party.path]
         if (path.length === 0) {
           return {
@@ -341,7 +375,18 @@ export const DungeonGame: React.FC = () => {
           }
         }
 
-        const speed = PLAYER_SPEED_PER_TICK
+        const speed = PLAYER_SPEED_PER_TICK * getPartySpeedMultiplier(prev.party.health)
+        if (speed <= 0) {
+          return {
+            ...prev,
+            party: {
+              ...prev.party,
+              path: [],
+              targetPosition: null,
+            },
+            isMoving: false,
+          }
+        }
         let movementOrigin = prev.party.position
         let reachedWaypoint: Vector2 | null = null
 
@@ -437,6 +482,10 @@ export const DungeonGame: React.FC = () => {
     const interval = setInterval(() => {
       setGameState((prev) => {
         if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+          return prev
+        }
+
+        if (prev.party.health <= 0) {
           return prev
         }
 
@@ -755,9 +804,47 @@ export const DungeonGame: React.FC = () => {
           prev.party.carriedItem
         )
 
+        const recoveryActiveUntil =
+          prev.party.recoveringUntil !== null && nextGameTime < prev.party.recoveringUntil
+            ? prev.party.recoveringUntil
+            : null
+
+        let nextParty = {
+          ...prev.party,
+          recoveringUntil: recoveryActiveUntil,
+        }
+        let nextIsMoving = prev.isMoving
+
+        const collidingThreat = trappedCreatures.find((creature) =>
+          isCreatureDamagingOnCollision(creature, nextParty.position)
+        )
+
+        if (
+          collidingThreat &&
+          isCollisionDamageReady(nextParty.lastDamageAt, nextGameTime)
+        ) {
+          const nextHealth = Math.max(0, nextParty.health - COLLISION_DAMAGE)
+          nextParty = {
+            ...nextParty,
+            health: nextHealth,
+            lastDamageAt: nextGameTime,
+          }
+
+          if (nextHealth <= 0) {
+            nextParty = {
+              ...nextParty,
+              path: [],
+              targetPosition: null,
+            }
+            nextIsMoving = false
+          }
+        }
+
         return {
           ...prev,
           map: updatedMap,
+          party: nextParty,
+          isMoving: nextIsMoving,
           selectedObject: syncSelectedObject(prev.selectedObject, updatedMap),
           gameTime: nextGameTime,
           cycleTime: newCycleTime,
@@ -771,6 +858,10 @@ export const DungeonGame: React.FC = () => {
   const handleCanvasClick = useCallback((clickPos: Vector2) => {
     setGameState((prev) => {
       if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+        return prev
+      }
+
+      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
         return prev
       }
 
@@ -878,6 +969,10 @@ export const DungeonGame: React.FC = () => {
         return prev
       }
 
+      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
+        return prev
+      }
+
       if (
         !prev.selectedObject ||
         (prev.selectedObject.type !== 'item' &&
@@ -910,6 +1005,10 @@ export const DungeonGame: React.FC = () => {
         return prev
       }
 
+      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
+        return prev
+      }
+
       if (prev.selectedObject?.type !== 'trap') {
         return prev
       }
@@ -924,7 +1023,49 @@ export const DungeonGame: React.FC = () => {
         return prev
       }
 
+      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
+        return prev
+      }
+
       return dropCarriedItemAtPosition(prev, prev.party.position)
+    })
+  }, [])
+
+  const handleEatCarried = useCallback(() => {
+    setGameState((prev) => {
+      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
+        return prev
+      }
+
+      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
+        return prev
+      }
+
+      if (!prev.party.carriedItem || prev.party.carriedItem.type !== 'food') {
+        return prev
+      }
+
+      const carriedFood = prev.party.carriedItem
+      const isSafeFood = SAFE_FOOD_TYPES.has(carriedFood.foodType)
+      const healthDelta = isSafeFood
+        ? 1
+        : -(DANGEROUS_FOOD_DAMAGE[carriedFood.foodType] ?? 0)
+      const nextHealth = Math.max(0, Math.min(MAX_HEARTS, prev.party.health + healthDelta))
+
+      return {
+        ...prev,
+        party: {
+          ...prev.party,
+          carriedItem: null,
+          health: nextHealth,
+          lastDamageAt: healthDelta < 0 ? prev.gameTime : prev.party.lastDamageAt,
+          recoveringUntil: prev.gameTime + RECOVERY_DURATION_SECONDS,
+          path: [],
+          targetPosition: null,
+        },
+        isMoving: false,
+        selectedObject: null,
+      }
     })
   }, [])
 
@@ -938,6 +1079,8 @@ export const DungeonGame: React.FC = () => {
   }
 
   const isVictory = hasArtifactExtracted(gameState.party, gameState.map.extractionZone)
+  const isDefeated = isPartyDefeated(gameState.party)
+  const isRecovering = isPartyRecovering(gameState.party, gameState.gameTime)
   const selectedPortableTrap = gameState.selectedObject?.type === 'trap'
     ? gameState.map.traps.find((trap) => trap.id === gameState.selectedObject?.id && isPortableTrap(trap))
     : null
@@ -960,6 +1103,8 @@ export const DungeonGame: React.FC = () => {
         cycleTime={gameState.cycleTime}
         gameTime={gameState.gameTime}
         isVictory={isVictory}
+        isDefeated={isDefeated}
+        isRecovering={isRecovering}
         canPickUpSelected={
           (
             gameState.selectedObject?.type === 'item' ||
@@ -968,17 +1113,28 @@ export const DungeonGame: React.FC = () => {
             Boolean(selectedArtifact)
           ) &&
           !gameState.party.carriedItem &&
-          !isVictory
+          !isVictory &&
+          !isDefeated &&
+          !isRecovering
         }
         canSetTrapSelected={Boolean(
           !isVictory &&
+          !isDefeated &&
+          !isRecovering &&
           selectedPortableTrap &&
           distanceBetween(gameState.party.position, selectedPortableTrap.position) <= PLAYER_PICKUP_RADIUS
         )}
-        canDropCarried={Boolean(gameState.party.carriedItem) && !isVictory}
+        canDropCarried={Boolean(gameState.party.carriedItem) && !isVictory && !isDefeated && !isRecovering}
+        canEatCarried={
+          Boolean(gameState.party.carriedItem?.type === 'food') &&
+          !isVictory &&
+          !isDefeated &&
+          !isRecovering
+        }
         onPickUpSelected={handlePickUpSelected}
         onSetTrapSelected={handleSetTrapSelected}
         onDropCarried={handleDropCarried}
+        onEatCarried={handleEatCarried}
       />
     </div>
   )
@@ -1020,6 +1176,32 @@ function hasArtifactExtracted(
   }
 
   return isPointInsideExtractionZone(party.position, extractionZone)
+}
+
+function isPartyDefeated(party: GameState['party']): boolean {
+  return party.health <= 0
+}
+
+function isPartyRecovering(party: GameState['party'], gameTime: number): boolean {
+  return party.recoveringUntil !== null && gameTime < party.recoveringUntil
+}
+
+function getPartySpeedMultiplier(health: number): number {
+  const clampedHealth = Math.max(0, Math.min(MAX_HEARTS, Math.floor(health)))
+  return SPEED_MULTIPLIER_BY_HEALTH[clampedHealth] ?? 1
+}
+
+function isCollisionDamageReady(lastDamageAt: number | null, gameTime: number): boolean {
+  return lastDamageAt === null || gameTime - lastDamageAt >= COLLISION_DAMAGE_COOLDOWN
+}
+
+function isCreatureDamagingOnCollision(creature: Creature, partyPosition: Vector2): boolean {
+  if (creature.state === 'sleeping' || creature.condition === 'trapped' || creature.isFriendly) {
+    return false
+  }
+
+  const collisionRadius = creature.width / 2 + 10
+  return distanceBetweenPositions(creature.position, partyPosition) <= collisionRadius
 }
 
 function getFeedingDurationSeconds(foodType: Food['foodType']): number {

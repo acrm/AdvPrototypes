@@ -12,12 +12,16 @@ interface InfoPanelProps {
   cycleTime: number
   gameTime: number
   isVictory: boolean
+  isDefeated: boolean
+  isRecovering: boolean
   canPickUpSelected: boolean
   canSetTrapSelected: boolean
   canDropCarried: boolean
+  canEatCarried: boolean
   onPickUpSelected: () => void
   onSetTrapSelected: () => void
   onDropCarried: () => void
+  onEatCarried: () => void
 }
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({
@@ -26,12 +30,16 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   cycleTime,
   gameTime,
   isVictory,
+  isDefeated,
+  isRecovering,
   canPickUpSelected,
   canSetTrapSelected,
   canDropCarried,
+  canEatCarried,
   onPickUpSelected,
   onSetTrapSelected,
   onDropCarried,
+  onEatCarried,
 }) => {
   const getTimeOfDay = (cycle: number): string => {
     const phaseDuration = CYCLE_DURATION_SECONDS / 4
@@ -44,11 +52,24 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   const displayPartyInfo = (): string => {
     let info = `= PARTY STATUS =\n\n`
     info += `[TIME] ${getTimeOfDay(cycleTime)} (${Math.floor(cycleTime)}s)\n\n`
+    info += `[HEALTH] ${formatHealthHearts(party.health)} (${party.health}/3)\n\n`
+    info += `[SPEED] ${formatPartySpeedLabel(party.health)}\n\n`
     info += `[MEMBERS] ${party.members.join(', ')}\n\n`
     info += `[POSITION] (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
     info += `[CARRYING] ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
     info += `[OBSERVED] ${party.observedCreatures.size} creatures\n\n`
-    info += `[CONTROLS] Use [PICK UP], [SET TRAP], and [DROP] actions below\n\n`
+    info += `[CONTROLS] Use [PICK UP], [SET TRAP], [DROP], and [EAT] actions below\n\n`
+
+    if (isDefeated) {
+      info += `[PROGRESS] Game over. Party defeated.`
+      return info
+    }
+
+    if (isRecovering && party.recoveringUntil !== null) {
+      info += `[PROGRESS] Recovering (${Math.max(0, party.recoveringUntil - gameTime).toFixed(1)}s)`
+      return info
+    }
+
     if (isVictory) {
       info += `[PROGRESS] Artifact extracted. Mission complete.`
       return info
@@ -195,10 +216,39 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
           >
             [DROP]
           </button>
+          <button
+            type="button"
+            className="action-button"
+            disabled={!canEatCarried}
+            onClick={onEatCarried}
+          >
+            [EAT]
+          </button>
         </div>
       </div>
     </div>
   )
+}
+
+function formatHealthHearts(health: number): string {
+  const clamped = Math.max(0, Math.min(3, Math.floor(health)))
+  return `${'❤'.repeat(clamped)}${'·'.repeat(3 - clamped)}`
+}
+
+function formatPartySpeedLabel(health: number): string {
+  if (health >= 3) {
+    return '100% (normal)'
+  }
+
+  if (health === 2) {
+    return '75% (-25%)'
+  }
+
+  if (health === 1) {
+    return '50% (-50%)'
+  }
+
+  return '0% (defeated)'
 }
 
 function getDetectionModeLabel(creature: Creature): string {
