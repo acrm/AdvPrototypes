@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { Artifact, Creature, CreatureRelation, ExtractionZone, GameState, Vector2, GameObject, Item, Food, Trap } from '../types/game'
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
-import { findPathWithObstacles, getRandomWalkablePosition, isPositionWalkable } from '../systems/Pathfinding'
+import { findPathWithObstacles, getRandomWalkablePosition, GRID_SIZE, isPositionWalkable } from '../systems/Pathfinding'
+import { createMovementBounds, stepAlongWaypoints, stepTowardsTarget } from '../systems/MovementSystem'
 import { GAME_SETTINGS } from '../config/gameSettings'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
@@ -37,6 +38,7 @@ const AGGRESSION_BOOST_MULTIPLIER = GAME_SETTINGS.npc.aggressionBoostMultiplier
 const AGGRESSION_BOOST_DURATION_SECONDS = GAME_SETTINGS.npc.aggressionBoostDurationSeconds
 const AGGRESSION_BOOST_COOLDOWN_SECONDS = GAME_SETTINGS.npc.aggressionBoostCooldownSeconds
 const HIDDEN_ARTIFACT_POSITION = GAME_SETTINGS.world.hiddenArtifactPosition
+const CREATURE_STEP_SCALES = [1, 0.66, 0.4, 0.2] as const
 
 type Carryable = Item | Food | Trap | Artifact
 type TickPlaybackMode = 'paused' | 'normal' | 'full'
@@ -379,8 +381,7 @@ export const DungeonGame: React.FC = () => {
           }
         }
 
-        const path = [...prev.party.path]
-        if (path.length === 0) {
+        if (prev.party.path.length === 0) {
           return {
             ...prev,
             party: { ...prev.party, targetPosition: null },
@@ -400,26 +401,21 @@ export const DungeonGame: React.FC = () => {
             isMoving: false,
           }
         }
-        let movementOrigin = prev.party.position
-        let reachedWaypoint: Vector2 | null = null
 
-        // Consume waypoints already reached before calculating movement direction.
-        while (path.length > 0) {
-          const nextWaypoint = path[0]
-          const distance = distanceBetween(nextWaypoint, movementOrigin)
-          if (distance >= speed) {
-            break
-          }
-          reachedWaypoint = nextWaypoint
-          movementOrigin = nextWaypoint
-          path.shift()
-        }
+        const movementResult = stepAlongWaypoints({
+          position: prev.party.position,
+          direction: prev.party.direction,
+          waypoints: prev.party.path,
+          speed,
+          waypointReachDistance: speed,
+          navigationCellSize: GRID_SIZE,
+        })
 
-        if (path.length === 0) {
+        if (movementResult.arrived) {
           // Reached target: stop, clear target, and auto-pick nearby carryable if possible.
           let updatedMap = prev.map
           let carriedItem = prev.party.carriedItem
-          const finalPosition = reachedWaypoint ?? movementOrigin
+          const finalPosition = movementResult.position
 
           if (!carriedItem) {
             const targetPosition = prev.party.targetPosition ?? finalPosition
@@ -467,20 +463,13 @@ export const DungeonGame: React.FC = () => {
           }
         }
 
-        const nextPos = path[0]
-        const angle = Math.atan2(nextPos.y - movementOrigin.y, nextPos.x - movementOrigin.x)
-        const newPos = {
-          x: movementOrigin.x + Math.cos(angle) * speed,
-          y: movementOrigin.y + Math.sin(angle) * speed,
-        }
-
         return {
           ...prev,
           party: {
             ...prev.party,
-            position: newPos,
-            path,
-            direction: angle,
+            position: movementResult.position,
+            path: movementResult.waypoints,
+            direction: movementResult.direction,
           },
           gameTime: prev.gameTime + PLAYER_TIME_STEP,
         }
@@ -1385,42 +1374,32 @@ function moveCreatureAlongWaypoints(
   speedMultiplier: number = 1
 ): Creature {
   const movementSpeed = creature.speed * speedMultiplier
-  const remainingWaypoints = [...waypoints]
+  const movementBounds = createMovementBounds(map.width, map.height, NPC_BOUNDARY_PADDING)
+  const movement = stepAlongWaypoints({
+    position: creature.position,
+    direction: creature.direction,
+    waypoints,
+    speed: movementSpeed,
+    waypointReachDistance: movementSpeed * NPC_WAYPOINT_REACH_MULTIPLIER,
+    navigationCellSize: GRID_SIZE,
+    stepScales: CREATURE_STEP_SCALES,
+    clampBounds: movementBounds,
+    isWalkable: (position) => isPositionWalkable(position, map.objects),
+  })
 
-  while (remainingWaypoints.length > 0) {
-    const distance = Math.hypot(
-      remainingWaypoints[0].x - creature.position.x,
-      remainingWaypoints[0].y - creature.position.y
-    )
-
-    if (distance >= movementSpeed * NPC_WAYPOINT_REACH_MULTIPLIER) {
-      break
-    }
-
-    remainingWaypoints.shift()
-  }
-
-  if (remainingWaypoints.length === 0) {
+  if (movement.arrived) {
     return {
       ...creature,
+      position: movement.position,
       state: 'idle',
       waypoints: [],
     }
   }
 
-  const target = remainingWaypoints[0]
-  const angle = Math.atan2(target.y - creature.position.y, target.x - creature.position.x)
-  const newPos = {
-    x: creature.position.x + Math.cos(angle) * movementSpeed,
-    y: creature.position.y + Math.sin(angle) * movementSpeed,
-  }
-
-  newPos.x = Math.max(NPC_BOUNDARY_PADDING, Math.min(map.width - NPC_BOUNDARY_PADDING, newPos.x))
-  newPos.y = Math.max(NPC_BOUNDARY_PADDING, Math.min(map.height - NPC_BOUNDARY_PADDING, newPos.y))
-
-  if (!isPositionWalkable(newPos, map.objects)) {
+  if (!movement.moved) {
     return {
       ...creature,
+      position: movement.position,
       state: 'idle',
       waypoints: [],
     }
@@ -1428,10 +1407,10 @@ function moveCreatureAlongWaypoints(
 
   return {
     ...creature,
-    position: newPos,
-    direction: angle,
+    position: movement.position,
+    direction: movement.direction,
     state: 'patrol',
-    waypoints: remainingWaypoints,
+    waypoints: movement.waypoints,
   }
 }
 
@@ -1820,47 +1799,31 @@ function moveCreatureDirectly(
   map: GameState['map'],
   speedMultiplier: number = 1
 ): Creature {
-  const dx = targetPosition.x - creature.position.x
-  const dy = targetPosition.y - creature.position.y
-  const distanceToTarget = Math.hypot(dx, dy)
-  const angle = Math.atan2(dy, dx)
-  const baseSpeed = creature.speed * speedMultiplier
-  const stepVariants = [1, 0.66, 0.4, 0.2]
+  const movementBounds = createMovementBounds(map.width, map.height, NPC_BOUNDARY_PADDING)
+  const movement = stepTowardsTarget({
+    position: creature.position,
+    direction: creature.direction,
+    targetPosition,
+    speed: creature.speed * speedMultiplier,
+    stepScales: CREATURE_STEP_SCALES,
+    clampBounds: movementBounds,
+    isWalkable: (position) => isPositionWalkable(position, map.objects),
+  })
 
-  for (const stepScale of stepVariants) {
-    // Cap step at distance so we never overshoot the target.
-    const step = Math.min(baseSpeed * stepScale, distanceToTarget)
-    if (step <= 0) {
-      continue
-    }
-
-    const candidate = {
-      x: creature.position.x + Math.cos(angle) * step,
-      y: creature.position.y + Math.sin(angle) * step,
-    }
-
-    const clamped = {
-      x: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.width - NPC_BOUNDARY_PADDING, candidate.x)),
-      y: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.height - NPC_BOUNDARY_PADDING, candidate.y)),
-    }
-
-    if (!isPositionWalkable(clamped, map.objects)) {
-      continue
-    }
-
+  if (!movement.moved) {
+    // Keep facing the target even if no step is currently available.
     return {
       ...creature,
-      position: clamped,
-      direction: angle,
+      direction: movement.direction,
       state: 'patrol',
       waypoints: [],
     }
   }
 
-  // Keep facing the target even if no step is currently available.
   return {
     ...creature,
-    direction: angle,
+    position: movement.position,
+    direction: movement.direction,
     state: 'patrol',
     waypoints: [],
   }
