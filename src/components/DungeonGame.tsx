@@ -26,10 +26,12 @@ const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
 const MAX_HEARTS = GAME_SETTINGS.health.maxHearts
 const COLLISION_DAMAGE = GAME_SETTINGS.health.collisionDamage
 const COLLISION_DAMAGE_COOLDOWN = GAME_SETTINGS.health.collisionDamageCooldownSeconds
+const DAMAGE_FLASH_DURATION = GAME_SETTINGS.health.damageFlashDurationSeconds
 const RECOVERY_DURATION_SECONDS = GAME_SETTINGS.health.recoveryDurationSeconds
 const SAFE_FOOD_TYPES = new Set(GAME_SETTINGS.health.safeFoodTypes)
 const DANGEROUS_FOOD_DAMAGE = GAME_SETTINGS.health.dangerousFoodDamageByType
 const SPEED_MULTIPLIER_BY_HEALTH = GAME_SETTINGS.health.speedMultiplierByHealth
+const ALERT_DURATION_SECONDS = GAME_SETTINGS.npc.alertDurationSeconds
 const HIDDEN_ARTIFACT_POSITION = GAME_SETTINGS.world.hiddenArtifactPosition
 
 type Carryable = Item | Food | Trap | Artifact
@@ -50,6 +52,8 @@ export const DungeonGame: React.FC = () => {
         health: MAX_HEARTS,
         lastDamageAt: null,
         recoveringUntil: null,
+        damageFlashUntil: null,
+        lastDamageTaken: 0,
       },
       selectedObject: null,
       gameTime: 0,
@@ -590,16 +594,26 @@ export const DungeonGame: React.FC = () => {
             }
           }
 
-          // Update creature state based on sleep schedule
-          const shouldSleep = isSleeping(creature.sleepSchedule, newCycleTime)
-          const newState: 'sleeping' | 'idle' | 'patrol' = shouldSleep
-            ? 'sleeping'
-            : (creature.waypoints.length > 0 ? 'patrol' : 'idle')
+          // Update alert state based on distance to player
+          let updatedCreature = updateCreatureAlertState(creature, nextGameTime, prev.party.position)
 
-          // Sleeping creatures don't move
+          // Update creature state based on sleep schedule
+          const shouldSleep = isSleeping(updatedCreature.sleepSchedule, newCycleTime)
+          
+          // Wake up if in alert radius (forced alert wake-up overrides sleep schedule)
+          const inAlertRadius = isCreatureInAlertRadius(updatedCreature, prev.party.position)
+          const forceAwake = inAlertRadius && shouldSleep
+
+          const newState: 'sleeping' | 'idle' | 'patrol' = forceAwake
+            ? 'idle'
+            : shouldSleep
+            ? 'sleeping'
+            : (updatedCreature.waypoints.length > 0 ? 'patrol' : 'idle')
+
+          // Sleeping creatures don't move (unless forced awake by alert)
           if (newState === 'sleeping') {
             return {
-              ...creature,
+              ...updatedCreature,
               state: newState,
               waypoints: [], // Clear waypoints when sleeping
               targetFoodId: null,
@@ -828,6 +842,8 @@ export const DungeonGame: React.FC = () => {
             ...nextParty,
             health: nextHealth,
             lastDamageAt: nextGameTime,
+            damageFlashUntil: nextGameTime + DAMAGE_FLASH_DURATION,
+            lastDamageTaken: COLLISION_DAMAGE,
           }
 
           if (nextHealth <= 0) {
@@ -1051,6 +1067,7 @@ export const DungeonGame: React.FC = () => {
         ? 1
         : -(DANGEROUS_FOOD_DAMAGE[carriedFood.foodType] ?? 0)
       const nextHealth = Math.max(0, Math.min(MAX_HEARTS, prev.party.health + healthDelta))
+      const damageAmount = healthDelta < 0 ? -healthDelta : 0
 
       return {
         ...prev,
@@ -1059,6 +1076,8 @@ export const DungeonGame: React.FC = () => {
           carriedItem: null,
           health: nextHealth,
           lastDamageAt: healthDelta < 0 ? prev.gameTime : prev.party.lastDamageAt,
+          damageFlashUntil: healthDelta < 0 ? prev.gameTime + DAMAGE_FLASH_DURATION : prev.party.damageFlashUntil,
+          lastDamageTaken: damageAmount,
           recoveringUntil: prev.gameTime + RECOVERY_DURATION_SECONDS,
           path: [],
           targetPosition: null,
@@ -1338,4 +1357,37 @@ function syncSelectedObject(selectedObject: GameObject | null, map: GameState['m
   }
 
   return map.objects.find((obj) => obj.id === selectedObject.id) ?? null
+}
+
+function isCreatureInAlertRadius(creature: Creature, partyPosition: Vector2): boolean {
+  const distance = distanceBetweenPositions(creature.position, partyPosition)
+  return distance <= creature.alertRadius
+}
+
+function updateCreatureAlertState(creature: Creature, gameTime: number, partyPosition: Vector2): Creature {
+  // Friendly creatures ignore alerts
+  if (creature.isFriendly) {
+    return creature
+  }
+
+  const inAlertRadius = isCreatureInAlertRadius(creature, partyPosition)
+
+  if (inAlertRadius) {
+    // Set alert state for alert duration
+    return {
+      ...creature,
+      alertUntil: gameTime + ALERT_DURATION_SECONDS,
+    }
+  }
+
+  // Check if alert is still active
+  if (creature.alertUntil !== null && gameTime < creature.alertUntil) {
+    return creature // Keep alert
+  }
+
+  // Alert expired
+  return {
+    ...creature,
+    alertUntil: null,
+  }
 }

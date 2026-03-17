@@ -66,6 +66,19 @@ export const GAME_SETTINGS = {
       wolf: 200,
       kobold: 155,
     } as Record<CreatureSpecies, number>,
+    alertRadiusMultiplier: 0.5,
+    farBehaviorRadiusMultiplier: 1.5,
+    alertDurationSeconds: 3,
+    aggressionModelBySpecies: {
+      rat: 'proximity',
+      spider: 'vision',
+      goblin: 'dual',
+      myconid: 'proximity',
+      owl: 'vision',
+      bat: 'dual',
+      wolf: 'dual',
+      kobold: 'proximity',
+    } as Record<CreatureSpecies, 'proximity' | 'vision' | 'dual'>,
     speedRanges: {
       rat: [0.4, 0.7],
       spider: [0.3, 0.6],
@@ -119,8 +132,9 @@ export const GAME_SETTINGS = {
   health: {
     maxHearts: 3,
     collisionDamage: 1,
-    collisionDamageCooldownSeconds: 1.25,
+    collisionDamageCooldownSeconds: 2,
     recoveryDurationSeconds: 5,
+    damageFlashDurationSeconds: 0.4,
     safeFoodTypes: ['fungi', 'organic_matter', 'insects'] as FoodType[],
     dangerousFoodDamageByType: {
       meat: 1,

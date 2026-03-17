@@ -33,14 +33,14 @@
 
 ### Visibility & Detection System
 - [x] Creature detection radius (varies by species)
-- [ ] Dual detection radii per creature: near reaction radius = `0.5 * chunk_size`, far behavior radius = `1.5 * chunk_size`
-- [ ] Sleeping wake trigger: if enemy enters near reaction radius, creature wakes and reacts immediately
+- [x] Dual detection radii per creature: near reaction radius = `0.5 * chunk_size`, far behavior radius = `1.5 * chunk_size`
+- [x] Sleeping wake trigger: if enemy enters near reaction radius, creature wakes and reacts immediately
 - [ ] Awake far-radius behavior: approach or increase distance based on relation settings
 - [ ] Vision mechanics: sleeping (no detection), idle (periodic checks), patrol (full awareness)
 - [ ] Player detection trigger (line of sight, noise, collision)
-- [ ] Per-species attack trigger model: proximity aggro, vision aggro, or both
-- [ ] ALERT state for creatures (heightened awareness when detecting player)
-- [ ] Detection feedback (visual alert icon or warning)
+- [x] Per-species attack trigger model: proximity aggro, vision aggro, or both
+- [x] ALERT state for creatures (heightened awareness when detecting player)
+- [x] Detection feedback (visual alert icon or warning)
 - [x] Selected creature highlight: show translucent detection radius ring on map
 
 ### Territorial System
@@ -52,7 +52,8 @@
 
 ### Player Health System
 - [x] 3-heart health display (one per party member)
-- [ ] Damage mechanic (creature collision, environmental hazard)
+- [x] Damage mechanic (creature collision with 2s cooldown, dangerous food consumption)
+- [x] Visual damage feedback (red screen flash + floating damage number)
 - [x] Speed penalty based on health:
   - 3 Health: Normal speed
   - 2 Health: 25% slower
@@ -60,7 +61,7 @@
 - [x] Health recovery: eating safe food restores 1 health
 - [x] Loss condition: 0 Health = game over
 - [x] Safe food types: fungi, organic matter, insects
-- [ ] Dangerous food types: meat (spoiled), certain fungi (hallucinogenic)
+- [x] Dangerous food types: meat (spoiled), certain fungi (hallucinogenic)
 
 ### Trapping & Domestication Mechanics
 - [x] Trap item type (player can carry and place)

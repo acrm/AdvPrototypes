@@ -105,6 +105,23 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       drawCreatureConditionOverlay(ctx, creature)
       drawCreatureCarriedFood(ctx, creature)
 
+      // Draw ALERT state visual (red aura)
+      if (creature.alertUntil !== null && gameState.gameTime < creature.alertUntil) {
+        ctx.strokeStyle = `rgba(255, 100, 100, ${Math.sin(gameState.gameTime * 6) * 0.3 + 0.5})`
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.arc(creature.position.x, creature.position.y, 22, 0, Math.PI * 2)
+        ctx.stroke()
+
+        // Draw exclamation mark above ALERT creature
+        ctx.save()
+        ctx.font = 'bold 14px Arial'
+        ctx.fillStyle = 'rgb(255, 100, 100)'
+        ctx.textAlign = 'center'
+        ctx.fillText('!', creature.position.x, creature.position.y - 25)
+        ctx.restore()
+      }
+
       if (gameState.selectedObject?.type === 'creature' && gameState.selectedObject.id === creature.id) {
         ctx.strokeStyle = '#f8f0c0'
         ctx.lineWidth = 2
@@ -181,6 +198,31 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
         ctx.arc(carryPosition.x, carryPosition.y, 5, 0, Math.PI * 2)
         ctx.fill()
       }
+    }
+
+    // Draw damage flash visual effect
+    if (gameState.party.damageFlashUntil !== null && gameState.gameTime < gameState.party.damageFlashUntil) {
+      const flashProgress =
+        (gameState.party.damageFlashUntil - gameState.gameTime) / 0.4
+      const intensity = Math.min(1, flashProgress * 2) // peak at start, fade quickly
+      ctx.fillStyle = `rgba(255, 100, 100, ${intensity * 0.6})`
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+
+    // Draw floating damage number
+    if (gameState.party.lastDamageTaken > 0 && gameState.party.damageFlashUntil !== null && gameState.gameTime < gameState.party.damageFlashUntil) {
+      const damageNumberProgress =
+        1 - (gameState.party.damageFlashUntil - gameState.gameTime) / 0.4
+      const yOffset = damageNumberProgress * 40 // float upward
+      const opacity = Math.max(0, 1 - damageNumberProgress)
+
+      ctx.save()
+      ctx.font = 'bold 24px Arial'
+      ctx.fillStyle = `rgba(255, 100, 100, ${opacity})`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('-' + gameState.party.lastDamageTaken, gameState.party.position.x, gameState.party.position.y - 30 - yOffset)
+      ctx.restore()
     }
 
     ctx.restore()

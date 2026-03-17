@@ -11,6 +11,10 @@ export type CreatureState = 'sleeping' | 'idle' | 'patrol'
 
 export type CreatureCondition = 'normal' | 'trapped' | 'enraged'
 
+export type CreatureRelation = 'friendly' | 'neutral' | 'hostile'
+
+export type CreatureAggression = 'proximity' | 'vision' | 'dual'
+
 export type FoodType = 'fungi' | 'organic_matter' | 'meat' | 'insects'
 
 export type CreatureSpecies = 'rat' | 'spider' | 'goblin' | 'myconid' | 'owl' | 'bat' | 'wolf' | 'kobold'
@@ -62,6 +66,11 @@ export interface Creature extends GameObject {
   targetFoodId: string | null // food currently being tracked by this creature
   eatingUntil: number | null // absolute game time when current eating action ends
   detectionRadius: number // radius used by line-of-sight checks
+  alertUntil: number | null // absolute game time when creature's ALERT state ends
+  alertRadius: number // dual-radius: 0.5× chunk for immediate wake/reaction
+  farBehaviorRadius: number // dual-radius: 1.5× chunk for far-behavior adjustments
+  relation: CreatureRelation // player relationship: friendly/neutral/hostile
+  aggression: CreatureAggression // aggro model: proximity/vision/dual
   sleepSchedule: SleepSchedule // sleep/wake pattern
   idleTurnInterval: number // seconds between idle turns (1-2s)
   nextIdleTurnAt: number // absolute game time when next idle turn happens
@@ -128,6 +137,8 @@ export interface Party {
   health: number // 0-3 hearts
   lastDamageAt: number | null // absolute game time of latest received damage
   recoveringUntil: number | null // recovery lock after eating
+  damageFlashUntil: number | null // absolute game time when red flash visual ends
+  lastDamageTaken: number // amount of damage in last hit (for floating number display)
 }
 
 export interface GameMap {

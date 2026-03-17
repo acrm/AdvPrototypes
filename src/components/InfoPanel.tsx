@@ -92,6 +92,16 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
     desc += `[STATE] ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
     desc += `[CONDITION] ${getCreatureConditionLabel(creature, gameTime)}\n\n`
+    
+    // Show ALERT status
+    if (creature.alertUntil !== null && gameTime < creature.alertUntil) {
+      desc += `[ALERT] ⚠️ Active (${Math.max(0, creature.alertUntil - gameTime).toFixed(1)}s\n\n`
+    }
+    
+    // Show relation
+    const relationEmoji = creature.relation === 'friendly' ? '💚' : creature.relation === 'hostile' ? '❤️‍🔥' : '⚪'
+    desc += `[RELATION] ${relationEmoji} ${creature.relation.charAt(0).toUpperCase() + creature.relation.slice(1)}\n\n`
+    
     desc += `[TAMING] ${creature.isFriendly ? 'Friendly' : `${creature.primingFeedings}/${FRIENDLY_FEEDINGS_REQUIRED} feedings`}\n\n`
 
     if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
