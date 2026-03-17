@@ -23,13 +23,13 @@
 // B - Trap spawn region targeting bats
 // W - Trap spawn region targeting wolves
 // K - Trap spawn region targeting kobolds
-// * - Party start and extraction region
-// A - Artifact spawn region
+// * - Party start and extraction candidate region (three candidates in the layout, one chosen per run)
+// A - Artifact spawn candidate region (three candidates in the layout, one chosen per run)
 // . - Item spawn region
 //   - Empty walkable chunk category
 
 export const DUNGEON_LAYOUT = `########################
-#*..rFN  #  I   s R .  #
+#*..rFN  #  I   s R . A#
 #   #### #  ##  #### # #
 #   #  # #  ##     # # #
 ### #  # #### #### # # #
@@ -37,11 +37,11 @@ export const DUNGEON_LAYOUT = `########################
 # ### ######### #  # # #
 #   #   F     # # I  # #
 # # # ####### #   #### #
-# #   #  N  #  g   G   #
+# # * #  N  #  g   G   #
 # ##### ### ########## #
-#b  B # # #      W w   #
+#b  B # # #  A   W w   #
 ##### # # # ########## #
-#   #   Y   #   m  O   #
+# * #   Y   #   m  O   #
 # # ####### # I ###### #
 #.k  K  S .   o F   A  #
 ########################`

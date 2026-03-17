@@ -35,8 +35,8 @@
 
 **Authoritative Layout Symbols (for implementer):**
 - `#` = Wall region (impassable)
-- `*` = Party start and extraction region
-- `A` = Artifact spawn region
+- `*` = Party start and extraction candidate region; the current map contains three candidates and one is chosen randomly at run start
+- `A` = Artifact spawn candidate region; the current map contains three candidates and one is chosen randomly at run start
 - `r/s/g/m/o/b/w/k` = Creature spawn regions by species (rat, spider, goblin, myconid, owl, bat, wolf, kobold)
 - `F/N/M/I` = Food spawn regions (`fungi`, `organic_matter`, `meat`, `insects`)
 - `R/S/G/Y/O/B/W/K` = Trap spawn regions targeted by species (rat, spider, goblin, myconid, owl, bat, wolf, kobold)
@@ -45,7 +45,9 @@
 **Spawn Region Rule:**
 - Layout letters define zone type and spawn source, not fixed permanent coordinates of one entity.
 - Multiple entities can exist over time from one region due to respawn.
-- The `*` chunk is the player's fixed start point and also the extraction point for finishing the level.
+- The layout contains multiple `*` candidate chunks; one random candidate becomes the player's start point and also the extraction point for that run.
+- The layout contains multiple `A` candidate chunks; one random candidate becomes the artifact spawn zone for that run.
+- Non-selected `*` and `A` candidate markers are inert for that run and do not produce additional starts or artifacts.
 
 ### Chunk-Based Dungeon Generation
 

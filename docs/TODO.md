@@ -97,6 +97,8 @@
 - [x] Parse trap zone symbols: `R/S/G/Y/O/B/W/K`
 - [x] Parse `*` as player start and extraction zone
 - [x] Parse `A` as artifact zone
+- [x] Support three `*` candidate chunks and choose exactly one random active start/extraction chunk at initialization
+- [x] Support three `A` candidate chunks and choose exactly one random active artifact chunk at initialization
 - [x] Keep `.` as item zone
 - [x] Treat symbols as zone definitions, not fixed single-entity placements
 - [ ] Attach chunk generator to zone map before spawn placement
@@ -171,6 +173,9 @@
 - [ ] Verify artifact can be picked up, dropped, and recovered
 - [ ] Verify level completion triggers only when artifact reaches `*`
 - [ ] Verify `*` and `A` layout markers are parsed distinctly
+- [ ] Verify only one `*` candidate becomes the active extraction/start chunk per initialization
+- [ ] Verify only one `A` candidate becomes the active artifact spawn chunk per initialization
+- [ ] Verify repeated initializations can select different `*` and `A` candidates
 - [ ] Verify every wall chunk keeps an impassable connected core
 - [ ] Verify every open chunk connects all of its open sides through valid micro-paths
 - [ ] Verify diagonal traversal remains legal in generated chunk interiors
@@ -289,7 +294,7 @@
   - Rat `#f4d03f`, Spider `#8e44ad`, Goblin `#2ecc71`, Myconid `#9b59b6`
   - Owl `#f39c12`, Bat `#34495e`, Wolf `#5dade2`, Kobold `#e67e22`
 - Selected creature visualization: always render a translucent detection-radius ring while selected
-- Layout symbol mapping: `*` for player start/extraction, `A` for artifact zone, `F/N/M/I` for food zones, and `R/S/G/Y/O/B/W/K` for trap zones
+- Layout symbol mapping: `*` for player start/extraction candidates and `A` for artifact candidates; the current map contains three of each and activates exactly one random candidate of each kind per run
 - Portable-object rule: traps and artifact are portable and use the same single carry slot as other carried objects
 - Monster threat rule: most monsters on the critical path must be dangerous to the player by proximity aggro, vision aggro, or both
 - Critical-path design rule: majority of routes to the artifact should be monster-pressured, so interaction mechanics are required more often than pure pathing

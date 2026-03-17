@@ -35,12 +35,44 @@ type ChunkOpenSides = {
   west: boolean
 }
 
+type LayoutCell = {
+  row: number
+  col: number
+}
+
 // Convert layout coordinates to world position (center of a large region).
 function layoutToWorld(layoutX: number, layoutY: number): Vector2 {
   return {
     x: layoutX * LAYOUT_REGION_SIZE + LAYOUT_REGION_SIZE / 2,
     y: layoutY * LAYOUT_REGION_SIZE + LAYOUT_REGION_SIZE / 2,
   }
+}
+
+function collectLayoutCells(layoutLines: string[], symbol: string): LayoutCell[] {
+  const cells: LayoutCell[] = []
+
+  for (let row = 0; row < layoutLines.length; row++) {
+    const line = layoutLines[row]
+    for (let col = 0; col < line.length; col++) {
+      if (line[col] === symbol) {
+        cells.push({ row, col })
+      }
+    }
+  }
+
+  return cells
+}
+
+function getRandomLayoutCell(cells: LayoutCell[]): LayoutCell | null {
+  if (cells.length === 0) {
+    return null
+  }
+
+  return cells[Math.floor(Math.random() * cells.length)]
+}
+
+function isSameLayoutCell(cell: LayoutCell | null, row: number, col: number): boolean {
+  return cell !== null && cell.row === row && cell.col === col
 }
 
 function getRandomFloat(min: number, max: number): number {
@@ -974,6 +1006,17 @@ function createSpawnZoneBase(
 
 export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
   const lines = DUNGEON_LAYOUT.split('\n').filter((line) => line.length > 0)
+  const partyStartCandidates = collectLayoutCells(lines, '*')
+  const legacyPartyStartCandidates =
+    partyStartCandidates.length === 0 ? collectLayoutCells(lines, 'P') : []
+  const selectedPartyStartCell =
+    getRandomLayoutCell(partyStartCandidates) ??
+    getRandomLayoutCell(legacyPartyStartCandidates) ?? {
+      row: GAME_SETTINGS.world.partyStartLayoutCell.y,
+      col: GAME_SETTINGS.world.partyStartLayoutCell.x,
+    }
+  const selectedArtifactCell = getRandomLayoutCell(collectLayoutCells(lines, 'A'))
+
   const map: GameMap = {
     width: GRID_COLS * LAYOUT_REGION_SIZE,
     height: GRID_ROWS * LAYOUT_REGION_SIZE,
@@ -999,20 +1042,14 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
       sourceSpawnZoneId: null,
     },
     extractionZone: {
-      position: layoutToWorld(
-        GAME_SETTINGS.world.partyStartLayoutCell.x,
-        GAME_SETTINGS.world.partyStartLayoutCell.y
-      ),
+      position: layoutToWorld(selectedPartyStartCell.col, selectedPartyStartCell.row),
       width: LAYOUT_REGION_SIZE,
       height: LAYOUT_REGION_SIZE,
     },
   }
 
   let partyStartPosition: Vector2 = getPreferredChunkPosition(
-    layoutToWorld(
-      GAME_SETTINGS.world.partyStartLayoutCell.x,
-      GAME_SETTINGS.world.partyStartLayoutCell.y
-    ),
+    layoutToWorld(selectedPartyStartCell.col, selectedPartyStartCell.row),
     map.objects
   )
   map.extractionZone = {
@@ -1035,23 +1072,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
         continue
       }
 
-      if (symbol === 'P') {
-        partyStartPosition = getPreferredChunkPosition(position, map.objects)
-        map.extractionZone = {
-          position: partyStartPosition,
-          width: LAYOUT_REGION_SIZE,
-          height: LAYOUT_REGION_SIZE,
-        }
-        continue
-      }
-
-      if (symbol === '*') {
-        partyStartPosition = getPreferredChunkPosition(position, map.objects)
-        map.extractionZone = {
-          position: partyStartPosition,
-          width: LAYOUT_REGION_SIZE,
-          height: LAYOUT_REGION_SIZE,
-        }
+      if (symbol === 'P' || symbol === '*') {
         continue
       }
 
@@ -1139,6 +1160,10 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
       }
 
       if (symbol === 'A') {
+        if (!isSameLayoutCell(selectedArtifactCell, row, col)) {
+          continue
+        }
+
         artifactZoneCount++
         spawnZoneSequence++
         const zone = createSpawnZoneBase(
