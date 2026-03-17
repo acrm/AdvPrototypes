@@ -1652,19 +1652,7 @@ function selectReactionDecision(
     return null
   }
 
-  // Keep current aggression target while it remains valid to avoid rapid target switching.
-  if (creature.aggressionTargetId !== null && creature.aggressionTargetType !== null) {
-    const currentTargetDecision = decisions.find(
-      (decision) =>
-        decision.targetId === creature.aggressionTargetId &&
-        decision.targetType === creature.aggressionTargetType
-    )
-
-    if (currentTargetDecision) {
-      return currentTargetDecision
-    }
-  }
-
+  // Sort all candidates by priority (then distance as tiebreaker).
   decisions.sort((a, b) => {
     const priorityA = getReactionPriority(creature, a)
     const priorityB = getReactionPriority(creature, b)
@@ -1674,7 +1662,27 @@ function selectReactionDecision(
     return a.distance - b.distance
   })
 
-  return decisions[0]
+  const best = decisions[0]
+
+  // Keep the locked aggression target unless a strictly higher-priority target appeared.
+  // "Higher priority" means a lower getReactionPriority score (different priority class, not just closer).
+  if (creature.aggressionTargetId !== null && creature.aggressionTargetType !== null) {
+    const locked = decisions.find(
+      (d) => d.targetId === creature.aggressionTargetId && d.targetType === creature.aggressionTargetType
+    )
+    if (locked) {
+      const lockedPriority = getReactionPriority(creature, locked)
+      const bestPriority = getReactionPriority(creature, best)
+      if (bestPriority < lockedPriority) {
+        // A strictly higher-priority threat appeared — switch and re-lock onto it.
+        return best
+      }
+      // Target still valid and no superior threat; keep the lock.
+      return locked
+    }
+  }
+
+  return best
 }
 
 function getReactionPriority(creature: Creature, decision: ReactionDecision): number {
