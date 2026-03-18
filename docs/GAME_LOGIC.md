@@ -216,18 +216,18 @@ Each individual creature has slight variation (±5%) to make patterns non-obviou
 - If player in creature's detection radius during PATROL state
 
 **Attack Trigger Model:**
-- **Proximity Aggro:** Some creatures attack if the player approaches too closely, even without long visual tracking.
-- **Vision Aggro:** Some creatures attack or begin pursuit when the player enters their visibility radius.
-- **Dual Aggro:** Treated as a compatibility alias for `vision` in runtime logic.
+- **Proximity Aggro:** Attacks use the near reaction radius.
+- **Vision Aggro:** Attacks use the far behavior radius.
+- **Dual Aggro:** Treated as a compatibility alias for `vision` in current runtime logic.
 - Most monsters placed on critical routes should have either proximity aggro, vision aggro, or both.
 - Only a minority of creatures should be effectively non-hostile to the player by default.
 - **Reaction Priority:** Avoidance reactions are resolved before pursuit/attack reactions when both are possible.
 
 **Detection Consequences:**
 - Creature enters ALERT state
-- Creature becomes hostile towards player
-- Creature calls out if intelligent (goblins, drows)
-- In ALERT: creature has +2 detection radius and constant scanning
+- Creature may lock onto the player as an aggression target when relation rules allow it
+- Creature may refresh its alert timer while the player remains in pressure range
+- ALERT currently acts as a retained warning state, not as a separate bonus-radius mode
 
 **Danger Expectation by Placement:**
 - Monsters positioned on main or likely routes to the artifact are expected to threaten the player directly.
@@ -237,6 +237,60 @@ Each individual creature has slight variation (±5%) to make patterns non-obviou
 **Selection Highlight Requirement:**
 - When player selects a creature on the map, render a translucent ring for that creature's current detection radius.
 - The selected creature ring is a gameplay readability aid and must be visible above terrain, below UI labels.
+
+### Relationship & Reaction System
+
+**Purpose:**
+- This system determines how each creature evaluates the player and other creatures once it is able to react.
+
+**Authoritative Inputs:**
+- **Player relation:** each species has a default relation to the player: `friendly`, `neutral`, `aggressive`, or `avoid`
+- **Species relation matrix:** creature-vs-creature reactions are resolved from the per-species relation table
+- **Aggression model:** `proximity` uses the near radius; `vision` uses the far radius; `dual` is currently treated as `vision`
+- **Overrides:** `friendly` creatures ignore hostile reactions, `trapped` creatures do not react, and `enraged` creatures bypass normal relation checks and hard-focus the player
+
+**Wake-Up Gate:**
+- Sleeping creatures do not run the full relation evaluation every tick
+- In current runtime, sleep interruption is checked only against the player
+- **Near intrusion** by the player always wakes the creature
+- **Far intrusion** by the player wakes the creature only if that creature is aggressive to the player and uses the vision-style aggression model
+- Creature-vs-creature relation checks begin after the observer is already awake
+
+**Reaction Decision Pass (Awake Creatures):**
+1. Evaluate the player using the creature's current relation to the player
+2. Evaluate every other non-trapped creature using the species relation matrix
+3. Build candidate reactions from those checks:
+   - `aggressive` -> attack / pursue
+   - `avoid` -> flee / create distance
+   - `neutral` -> react only at close range
+   - `friendly` -> no hostile reaction
+4. Sort all candidate reactions by priority class, then by distance as a tiebreaker
+
+**Priority Order (Current Runtime):**
+1. Avoidance reactions
+2. Player target when the species is aggressive to the player
+3. Near-range attack reactions
+4. Far-range attack reactions
+
+**Target Locking:**
+- Once a creature has an aggression target, it keeps that lock while the target remains valid
+- It switches only when a target from a strictly higher-priority class appears
+
+**Attack / Avoid Geometry:**
+- **Near radius (`0.5 x chunk_size`)**: immediate close-reaction range; also used by neutral hostility and wake-up pressure
+- **Far radius (`1.5 x chunk_size`)**: spacing / pursuit range for avoid behavior and vision-style aggression
+- `aggressive + proximity` -> attack inside near radius
+- `aggressive + vision` (or `dual`) -> attack inside far radius
+- `avoid` -> flee inside far radius
+- `neutral` -> only attack inside near radius
+
+**Chase Commitment:**
+- When an attack reaction is selected, the creature can lock onto that target and gain a short aggression speed burst
+- That burst is temporary and then enters cooldown
+
+**System Boundary:**
+- This relation system is the authority for chase / avoid decisions between creatures and against the player
+- `dietPriorities` remain part of feeding behavior and creature profiling; they should stay aligned with predator intent, but they are not the sole authority for relation-based pursuit in the current runtime
 
 ### Territorial System & Conflicts
 
@@ -297,11 +351,12 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 **Predation Rule:**
 - Predator-capable species can treat prey creatures and the player as diet targets.
 - `player` as a diet target is species-dependent and lower priority than preferred natural food in most cases.
+- For actual food items on the ground, creatures search visible foods in diet order and choose the nearest item that matches the highest available priority.
 
 **Inter-Creature Attack Rule:**
-- Creatures must attack other creatures when those targets are valid enemies in `dietPriorities` and are reachable by current detection logic.
-- Target resolution always uses the first valid entry in the ordered priority table.
-- Near-radius contact has priority as a wake/react trigger; far-radius behavior controls approach or retreat while awake.
+- Creature-vs-creature pursuit and avoidance are resolved by the **Relationship & Reaction System**, not by food targeting alone.
+- `dietPriorities` describe feeding preference and predator profile, and should be kept consistent with relation settings.
+- Near-radius contact remains the close-pressure trigger; far-radius behavior controls attack or retreat for awake creatures according to relation rules.
 
 **Visual Indicator:** Food being carried displays as small object at creature's forward-pointing triangle vertex.
 

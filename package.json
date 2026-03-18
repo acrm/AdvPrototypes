@@ -1,7 +1,7 @@
 {
   "name": "dungeon-ecosystem-prototype",
   "private": true,
-  "version": "2026w12-0.20",
+  "version": "2026w12-0.21",
   "type": "module",
   "scripts": {
     "dev": "vite",

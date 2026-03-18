@@ -43,3 +43,4 @@
 - 2026w12-0.18 — Refactor movement into functional movement system
 - 2026w12-0.19 — Fix predator prey consumption and extract predation subsystem
 - 2026w12-0.20 — Adjust creature diets and reaction priorities
+- 2026w12-0.21 — Document relationship and reaction system
