@@ -45,3 +45,4 @@
 - 2026w12-0.20 — Adjust creature diets and reaction priorities
 - 2026w12-0.21 — Document relationship and reaction system
 - 2026w12-0.22 — Define documentation agent scope and constraints
+- 2026w12-0.23 — Document Dev agent functionality and constraints
