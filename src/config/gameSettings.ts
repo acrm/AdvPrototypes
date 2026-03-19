@@ -131,14 +131,14 @@ export const GAME_SETTINGS = {
     aggressionBoostDurationSeconds: 2,
     aggressionBoostCooldownSeconds: 2,
     speedRanges: {
-      rat: [0.4, 0.7],
-      spider: [0.3, 0.6],
-      goblin: [0.5, 0.8],
-      myconid: [0.2, 0.4],
-      owl: [0.6, 0.9],
-      bat: [0.7, 1.1],
-      wolf: [0.6, 0.9],
-      kobold: [0.5, 0.8],
+      rat: [2.8, 4.5],
+      spider: [2.3, 3.6],
+      goblin: [2.5, 4.8],
+      myconid: [1.2, 2.4],
+      owl: [3.6, 4.9],
+      bat: [3.7, 5.1],
+      wolf: [4.6, 5.9],
+      kobold: [2.5, 4.8],
     } as Record<CreatureSpecies, RangeTuple>,
     sleepSchedule: {
       nocturnal: {
