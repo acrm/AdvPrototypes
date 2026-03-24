@@ -48,3 +48,4 @@
 - 2026w12-0.23 — Document Dev agent functionality and constraints
 - 2026w13-0.1 — Formalize interaction mechanics: food throw, trap coverage, refuges, party clarity
 - 2026w13-1.1 — Layered architecture + difficulty/shelter/time/party-member rendering overhaul
+- 2026w13-1.2 — Fix InfoPanel.css malformed nested rule from previous patch

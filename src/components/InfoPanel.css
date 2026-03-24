@@ -40,14 +40,13 @@
   );
 }
 
-.info-content {
-  .panel-content-details {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-  }
+.panel-content-details {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
 
-  .info-content {
+.info-content {
   font-size: 0.9rem;
   line-height: 1.65;
 }
