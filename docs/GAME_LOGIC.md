@@ -448,6 +448,37 @@ Each food type appears in semi-transparent spawn zones where it respawns periodi
 - Risky: if caught by other creatures while enraged creature is loose → cornered
 - Once creature enraged against you → difficult to untame (needs many priming sessions)
 
+**Trap Coverage & Visibility (Planned):**
+- Armed traps display their trigger zone as a visible overlay (e.g., 3×3 chunk cell area)
+- Trigger zone is color-coded by target species
+- Visible trigger areas allow player to pre-plan routes and creature luring
+- Creatures may evade visible trap zones if intelligent (low priority for MVP)
+
+### Advanced Interaction Mechanics (Planned)
+
+**Projectile Food Throw:**
+- Allow player to throw held food at a distance instead of dropping at current position
+- Lures creatures toward landing zone
+- Enables remote corridor control and creature redirection without close approach
+- Works with creature diet priorities: more valuable food types attract from greater distance
+
+**Safe Refuges & Hiding Spots:**
+- Environmental shelter locations (alcoves, dead-ends, rock formations) placed throughout dungeon
+- When player enters an adjacent refuge: activates `[HIDE]` action
+- While hidden:
+  - Player becomes invisible to creatures (creature search timeout resets)
+  - Creatures cannot enter the refuge space
+  - Player can peek out or wait for creatures to pass
+  - Player breaks cover if moving away or triggering any action
+- Benefits: break pursuit chains, reset aggro timers, observe creature behavior safely without distance-based escape
+- Refuges reduce pure "kiting" as a dominant strategy by creating meaningful time pressure
+
+**Party Clarity & Identification:**
+- Party rendered with a distinct symbol (e.g., diamond or shield) not used by creatures
+- Distinct color (gold, silver, or bright accent) for quick visual recognition
+- Reduces confusion on crowded maps with many creatures and items
+- Makes party position an obvious reference point in multi-chamber layouts
+
 ### Player Health System
 
 **Party Health:**

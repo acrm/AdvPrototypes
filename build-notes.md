@@ -46,3 +46,4 @@
 - 2026w12-0.21 — Document relationship and reaction system
 - 2026w12-0.22 — Define documentation agent scope and constraints
 - 2026w12-0.23 — Document Dev agent functionality and constraints
+- 2026w13-0.1 — Formalize interaction mechanics: food throw, trap coverage, refuges, party clarity

@@ -124,6 +124,33 @@
 - [x] Health indicator (3 hearts) displayed in UI
 - [x] Speed penalty visualization when wounded
 
+### Interaction Mechanics & Environmental Engagement
+- [ ] **Projectile Food Throw:** Drop food at distance (not just at party location)
+  - [ ] "Throw" action in info panel for held food items
+  - [ ] Food lands at targeted position within visible range
+  - [ ] Creature attraction based on sight + proximity to landing zone
+  - [ ] Allows remote creature luring and corridor control
+- [ ] **Visible Trap Coverage:** Armed traps display their full trigger area
+  - [ ] Trigger radius visualized as a circle/grid overlay (e.g., 3×3 chunk cells = 75px radius)
+  - [ ] Color-coded by trap species target
+  - [ ] Visible to player when trap is armed, hidden when portable
+  - [ ] Helps player plan routes and bait creature paths
+- [ ] **Refuges / Safe Shelters:** Static environmental hiding spots
+  - [ ] Design: alcove, dead-end chamber, or rock formation readable on the map
+  - [ ] Creatures cannot enter or see into active refuge
+  - [ ] Player can "Hide" inside an adjacent refuge; breaks when player moves or attacks
+  - [ ] Creatures resume normal behavior, search, or leave after timeout if player hidden
+  - [ ] Benefits: break aggro chain, reset wait timers, observe creatures in safety
+- [ ] **Party Clear Identification:** Distinct party representation vs creatures
+  - [ ] Party rendered as a larger, unique diamond or shield symbol (not creature triangle)
+  - [ ] Different base color (e.g., gold, silver, or bright accent) to stand out
+  - [ ] Quick recognition on crowded maps
+- [ ] **Environmental Interaction Patterns:**
+  - [ ] Creature-to-food spatial mechanics (throw at creature to redirect)
+  - [ ] Creature-vs-trap pre-planning (visible trigger zones enable strategy)
+  - [ ] Safe route planning (visible refuges as waypoints)
+  - [ ] Time-pressure reduction (hiding breaks pursuit without requiring distance)
+
 ### Creature Species (MVP)
 - [ ] Giant Rats (nocturnal sleep pattern, fungi/organic preference, zone: Rat Warren)
 - [ ] Giant Spiders (alert, eat-on-site behavior, zone: Spider Nest)
