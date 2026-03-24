@@ -57,3 +57,4 @@
 - 2026w13-1.8 — Tick-driven party movement, food throw action, and time format fix
 - 2026w13-1.9 — Queue all party actions on simulation ticks
 - 2026w13-1.10 — Fix simulation to fixed 6 ticks per second
+- 2026w13-1.11 — Remove full-speed override and enforce fixed 6 TPS

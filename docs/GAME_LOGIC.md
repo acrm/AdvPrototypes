@@ -160,6 +160,7 @@
 **Cycle Duration:** 240 seconds (full cycle)
 
 **Simulation Tick Rate:** Fixed at 6 ticks per real second (independent of render FPS)
+- Debug controls can pause, single-step, and resume simulation, but do not change this fixed tick rate.
 
 **Creature States:**
 1. **SLEEPING** - Completely motionless, unaware of surroundings

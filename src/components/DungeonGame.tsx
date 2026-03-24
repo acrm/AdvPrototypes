@@ -68,7 +68,7 @@ const AI_RADIUS_CHUNKS = GAME_SETTINGS.npc.aiProcessingRadiusChunks
 const AI_RADIUS_PX = AI_RADIUS_CHUNKS * LAYOUT_REGION_SIZE
 
 type Carryable = Item | Food | Trap | Artifact
-type TickPlaybackMode = 'paused' | 'normal' | 'full'
+type TickPlaybackMode = 'paused' | 'normal'
 type QueuedPartyAction =
   | { type: 'pickupSelected'; selectedId: string; selectedType: 'item' | 'food' | 'trap' | 'artifact' }
   | { type: 'setTrapSelected'; trapId: string }
@@ -631,7 +631,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       return
     }
 
-    const simTickMs = tickPlaybackMode === 'full' ? 1 : CREATURE_TICK_MS
+    const simTickMs = CREATURE_TICK_MS
     const interval = setInterval(() => {
       setGameState((prev) => processPartyMovementTick(prev))
     }, simTickMs)
@@ -654,7 +654,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       return
     }
 
-    const simTickMs = tickPlaybackMode === 'full' ? 1 : CREATURE_TICK_MS
+    const simTickMs = CREATURE_TICK_MS
     const timeout = setTimeout(() => {
       setGameState((prev) => processQueuedThrowTick(prev, queuedThrowTarget))
       setQueuedThrowTarget(null)
@@ -678,7 +678,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       return
     }
 
-    const simTickMs = tickPlaybackMode === 'full' ? 1 : CREATURE_TICK_MS
+    const simTickMs = CREATURE_TICK_MS
     const timeout = setTimeout(() => {
       setGameState((prev) => processQueuedPartyActionTick(prev, queuedPartyAction))
       setQueuedPartyAction(null)
@@ -1156,7 +1156,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       return
     }
 
-    const creatureTickMs = tickPlaybackMode === 'full' ? 1 : CREATURE_TICK_MS
+    const creatureTickMs = CREATURE_TICK_MS
     const interval = setInterval(() => {
       runCreatureSimulationTick()
     }, creatureTickMs)
@@ -1175,7 +1175,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   }, [])
 
   const handlePlayFullSpeed = useCallback(() => {
-    setTickPlaybackMode('full')
+    setTickPlaybackMode('normal')
     setQueuedTickSteps(0)
   }, [])
 

@@ -5,7 +5,7 @@ import './InfoPanel.css'
 
 const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
 const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
-type TickPlaybackMode = 'paused' | 'normal' | 'full'
+type TickPlaybackMode = 'paused' | 'normal'
 
 interface InfoPanelProps {
   selectedObject: GameObject | null
@@ -320,10 +320,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             <button
               type="button"
               className="action-button"
-              disabled={tickPlaybackMode === 'full'}
+              disabled={tickPlaybackMode === 'normal'}
               onClick={onPlayFullSpeed}
             >
-              [FULL SPEED]
+              [RUN]
             </button>
           </div>
         </div>
@@ -337,11 +337,7 @@ function getTickPlaybackModeLabel(mode: TickPlaybackMode): string {
     return 'Paused'
   }
 
-  if (mode === 'full') {
-    return 'Full speed'
-  }
-
-  return 'Normal'
+  return 'Running (6 TPS)'
 }
 
 function formatHealthHearts(health: number): string {
