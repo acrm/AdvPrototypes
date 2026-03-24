@@ -87,13 +87,6 @@
 - [x] Placed traps stay visible via contour rendering
 - [x] Player can reclaim armed traps
 
-### Movement & Sound System
-- [ ] Speed tiers: fast (noisy), medium (normal), slow (quiet)
-- [ ] Sound generation based on speed and movement distance
-- [ ] Creature hearing based on state (patrol hears more than idle)
-- [ ] Noise propagation through zones (alert chains)
-- [ ] Standing still: complete silence
-
 ### Food & Feeding System
 - [x] Food item types: fungi, organic_matter, meat, insects
 - [x] Spawn zones (semi-transparent, respawning food)
@@ -182,7 +175,6 @@
 - [x] Health heart display in UI
 
 ### Artifact & Objective
-- [ ] Owlbear lair location with artifact
 - [x] Artifact is portable and uses the standard carry slot
 - [x] Win condition: carry artifact to `*` extraction zone
 - [x] Player start/extraction location clearly marked by `*`

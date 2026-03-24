@@ -189,8 +189,15 @@ export function moveCreatureAlongWaypoints(
     isWalkable: (pos) => isPositionWalkable(pos, map.objects),
   })
 
-  if (movement.arrived || !movement.moved) {
+  if (movement.arrived) {
     return { ...creature, position: movement.position, state: 'idle', waypoints: [] }
+  }
+
+  if (!movement.moved) {
+    // Keep patrol state when chasing so the creature immediately retries next tick
+    // instead of snapping to idle and losing aggression context.
+    const nextState = creature.aggressionTargetId !== null ? 'patrol' as const : 'idle' as const
+    return { ...creature, position: movement.position, state: nextState, waypoints: [] }
   }
 
   return {
@@ -301,7 +308,31 @@ export function selectReactionDecision(
     }
   }
 
-  if (decisions.length === 0) return null
+  if (decisions.length === 0) {
+    // Grace zone: if the creature has a locked aggression target that just slipped
+    // slightly outside detection range, keep pursuing it up to 2× the normal radius.
+    // This prevents the one-tick oscillation / backward-jitter glitch.
+    if (creature.aggressionTargetId !== null && creature.aggressionTargetType !== null) {
+      const graceRadius = getAggressiveReactionRadius(creature) * 2
+      if (creature.aggressionTargetType === 'player' && party.health > 0) {
+        const dist = distanceBetween(creature.position, party.position)
+        if (dist <= graceRadius) {
+          return { action: 'attack', targetType: 'player', targetId: 'player', targetPosition: party.position, distance: dist }
+        }
+      } else if (creature.aggressionTargetType === 'creature') {
+        const target = creatures.find(
+          (c) => c.id === creature.aggressionTargetId && c.condition !== 'trapped'
+        )
+        if (target) {
+          const dist = distanceBetween(creature.position, target.position)
+          if (dist <= graceRadius) {
+            return { action: 'attack', targetType: 'creature', targetId: target.id, targetPosition: target.position, distance: dist }
+          }
+        }
+      }
+    }
+    return null
+  }
 
   decisions.sort((a, b) => {
     const pa = getReactionPriority(creature, a)

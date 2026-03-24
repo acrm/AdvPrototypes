@@ -12,6 +12,7 @@
 // w - Wolf spawn region
 // k - Kobold spawn region
 // * - Artifact spawn region
+// H - Refuge / hideout (safe zone for party, no creature entry)
 // . - Item spawn region
 //   - Empty walkable region
 //
@@ -20,15 +21,15 @@
 #   #### #  ##  #### # #
 #   #  # #  ##     # # #
 ### #  # #### #### # # #
-#   #           #  # # #
+#   #   H       #  # # #
 # ### ######### #  # # #
-#   #         # #    # #
+#   #       H # #    # #
 # # # ####### #   #### #
 # #   #     #  g       #
 # ##### ### ########## #
 #b    # # #        w   #
 ##### # # # ########## #
-#   #       #   m      #
+#   # H     #   m      #
 # # ####### #   ###### #
 #.k       .   o     *  #
 ########################

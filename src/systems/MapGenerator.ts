@@ -767,7 +767,7 @@ function getTrapTargetFromSymbol(symbol: string): CreatureSpecies | null {
   return TRAP_SYMBOL_TO_TARGET[symbol] ?? null
 }
 
-function createCreatureFromZone(zone: SpawnZone, obstacles: GameMap['objects'], cycleTime: number, gameTime: number = 0): Creature {
+function createCreatureFromZone(zone: SpawnZone, obstacles: GameMap['objects'], cycleTime: number, gameTime: number = 0, visionMultiplier = 1): Creature {
   if (!zone.creatureSpecies) {
     throw new Error(`Spawn zone ${zone.id} does not define a creature species.`)
   }
@@ -804,10 +804,10 @@ function createCreatureFromZone(zone: SpawnZone, obstacles: GameMap['objects'], 
     primingFeedings: 0,
     targetFoodId: null,
     eatingUntil: null,
-    detectionRadius: template.detectionRadius,
+    detectionRadius: template.detectionRadius * visionMultiplier,
     alertUntil: null,
-    alertRadius: nearReactionRadius,
-    farBehaviorRadius,
+    alertRadius: nearReactionRadius * visionMultiplier,
+    farBehaviorRadius: farBehaviorRadius * visionMultiplier,
     relation: GAME_SETTINGS.npc.playerRelationBySpecies[template.species],
     aggression: GAME_SETTINGS.npc.aggressionModelBySpecies[template.species],
     aggressionTargetId: null,
@@ -940,9 +940,9 @@ function createArtifactFromZone(zone: SpawnZone, obstacles: GameMap['objects']):
   }
 }
 
-function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: number): SpawnZone {
+function applyInitialSpawnToZone(map: GameMap, zone: SpawnZone, cycleTime: number, visionMultiplier = 1): SpawnZone {
   if (zone.spawnKind === 'creature') {
-    const creature = createCreatureFromZone(zone, map.objects, cycleTime, 0)
+    const creature = createCreatureFromZone(zone, map.objects, cycleTime, 0, visionMultiplier)
     map.creatures.push(creature)
     return {
       ...zone,
@@ -1016,7 +1016,7 @@ function createSpawnZoneBase(
   }
 }
 
-export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
+export function initializeMap(visionMultiplier = 1): { map: GameMap; partyStartPosition: Vector2 } {
   const lines = DUNGEON_LAYOUT.split('\n').filter((line) => line.length > 0)
   const partyStartCandidates = collectLayoutCells(lines, '*')
   const legacyPartyStartCandidates =
@@ -1053,6 +1053,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
     food: [],
     traps: [],
     spawnZones: [],
+    refugeZones: [],
     artifact: {
       id: 'artifact_placeholder',
       type: 'artifact',
@@ -1118,7 +1119,7 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
             color: 'rgba(91, 122, 91, 0.08)',
           }
         )
-        map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
+        map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME, visionMultiplier))
         continue
       }
 
@@ -1206,6 +1207,14 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
         )
         map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
       }
+
+      if (symbol === 'H') {
+        map.refugeZones.push({
+          position: layoutToWorld(col, row),
+          width: LAYOUT_REGION_SIZE,
+          height: LAYOUT_REGION_SIZE,
+        })
+      }
     }
   }
 
@@ -1216,7 +1225,8 @@ export function refreshSpawnZones(
   map: GameMap,
   gameTime: number,
   cycleTime: number,
-  carriedItem: Item | Food | Trap | Artifact | null
+  carriedItem: Item | Food | Trap | Artifact | null,
+  visionMultiplier = 1
 ): GameMap {
   const presentIds = new Set<string>()
 
@@ -1273,7 +1283,7 @@ export function refreshSpawnZones(
     }
 
     if (zoneCopy.spawnKind === 'creature') {
-      const creature = createCreatureFromZone(zoneCopy, nextMap.objects, cycleTime, gameTime)
+      const creature = createCreatureFromZone(zoneCopy, nextMap.objects, cycleTime, gameTime, visionMultiplier)
       nextMap.creatures.push(creature)
       zoneCopy.activeEntityId = creature.id
       zoneCopy.spawnCount += 1

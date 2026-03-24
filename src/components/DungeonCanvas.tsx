@@ -57,6 +57,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     ctx.save()
     ctx.translate(-camera.x, -camera.y)
 
+    drawRefugeZones(ctx, gameState)
     drawExtractionZone(ctx, gameState)
 
     // Draw static objects (rectangles)
@@ -460,6 +461,24 @@ function drawExtractionZone(ctx: CanvasRenderingContext2D, gameState: GameState)
   ctx.textBaseline = 'middle'
   ctx.fillText('*', zone.position.x, zone.position.y)
   ctx.restore()
+}
+
+function drawRefugeZones(ctx: CanvasRenderingContext2D, gameState: GameState) {
+  for (const zone of gameState.map.refugeZones) {
+    const left = zone.position.x - zone.width / 2
+    const top = zone.position.y - zone.height / 2
+
+    ctx.save()
+    ctx.fillStyle = 'rgba(80, 180, 255, 0.06)'
+    ctx.fillRect(left, top, zone.width, zone.height)
+
+    ctx.strokeStyle = 'rgba(120, 210, 255, 0.65)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([8, 6])
+    ctx.strokeRect(left + 2, top + 2, zone.width - 4, zone.height - 4)
+    ctx.setLineDash([])
+    ctx.restore()
+  }
 }
 
 function isTrapVisible(trap: GameState['map']['traps'][number]): boolean {

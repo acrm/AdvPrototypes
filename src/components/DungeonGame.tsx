@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { Artifact, Creature, GameState, InGameClock, Vector2, GameObject, Item, Food, Trap, Difficulty } from '../types/game'
+import { Artifact, Creature, GameState, InGameClock, Vector2, GameObject, Item, Food, Trap, Difficulty, PartyMemberStatus } from '../types/game'
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
 import { getShelterChunks } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, GRID_SIZE, isPositionWalkable } from '../systems/Pathfinding'
@@ -56,6 +56,9 @@ const TRAP_ARM_DELAY_SECONDS = GAME_SETTINGS.trap.armDelaySeconds
 // FOOD_FEEDING_DURATION_SECONDS and FRIENDLY_FEEDINGS_REQUIRED are handled by game/CreatureAI
 const MAX_HEARTS = GAME_SETTINGS.health.maxHearts
 const COLLISION_DAMAGE = GAME_SETTINGS.health.collisionDamage
+
+const memberStatusesFromHealth = (health: number): PartyMemberStatus[] =>
+  Array.from({ length: MAX_HEARTS }, (_, i) => (i < health ? 'active' : 'downed'))
 const DAMAGE_FLASH_DURATION = GAME_SETTINGS.health.damageFlashDurationSeconds
 const RECOVERY_DURATION_SECONDS = GAME_SETTINGS.health.recoveryDurationSeconds
 const SAFE_FOOD_TYPES = new Set(GAME_SETTINGS.health.safeFoodTypes)
@@ -74,13 +77,15 @@ interface DungeonGameProps {
 
 export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd }) => {
   const [gameState, setGameState] = useState<GameState>(() => {
-    const { map, partyStartPosition } = initializeMap()
+    const { map, partyStartPosition } = initializeMap(
+      GAME_SETTINGS.difficulty[difficulty].creatureVisionMultiplier
+    )
     return {
       map,
       party: {
         position: partyStartPosition,
         members: ['Warrior', 'Rogue', 'Cleric'],
-          memberStatuses: ['active', 'active', 'active'],
+          memberStatuses: memberStatusesFromHealth(MAX_HEARTS),
         path: [],
         targetPosition: null,
         observedCreatures: new Map(),
@@ -933,7 +938,8 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
         },
         nextGameTime,
         newCycleTime,
-        prev.party.carriedItem
+        prev.party.carriedItem,
+        GAME_SETTINGS.difficulty[prev.difficulty].creatureVisionMultiplier
       )
 
       const recoveryActiveUntil =
@@ -959,6 +965,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
         nextParty = {
           ...nextParty,
           health: nextHealth,
+          memberStatuses: memberStatusesFromHealth(nextHealth),
           lastDamageAt: nextGameTime,
           damageFlashUntil: nextGameTime + DAMAGE_FLASH_DURATION,
           lastDamageTaken: COLLISION_DAMAGE,
@@ -1232,6 +1239,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           ...prev.party,
           carriedItem: null,
           health: nextHealth,
+          memberStatuses: memberStatusesFromHealth(nextHealth),
           lastDamageAt: healthDelta < 0 ? prev.gameTime : prev.party.lastDamageAt,
           damageFlashUntil: healthDelta < 0 ? prev.gameTime + DAMAGE_FLASH_DURATION : prev.party.damageFlashUntil,
           lastDamageTaken: damageAmount,

@@ -146,6 +146,12 @@ export interface ExtractionZone {
   height: number
 }
 
+export interface RefugeZone {
+  position: Vector2
+  width: number
+  height: number
+}
+
 export interface Party {
   position: Vector2
   members: string[]
@@ -174,6 +180,7 @@ export interface GameMap {
   spawnZones: SpawnZone[]
   artifact: Artifact
   extractionZone: ExtractionZone
+  refugeZones: RefugeZone[]
 }
 
 export interface GameState {
