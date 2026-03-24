@@ -69,6 +69,11 @@ const AI_RADIUS_PX = AI_RADIUS_CHUNKS * LAYOUT_REGION_SIZE
 
 type Carryable = Item | Food | Trap | Artifact
 type TickPlaybackMode = 'paused' | 'normal' | 'full'
+type QueuedPartyAction =
+  | { type: 'pickupSelected'; selectedId: string; selectedType: 'item' | 'food' | 'trap' | 'artifact' }
+  | { type: 'setTrapSelected'; trapId: string }
+  | { type: 'dropCarried' }
+  | { type: 'eatCarried' }
 
 interface DungeonGameProps {
   difficulty: Difficulty
@@ -108,6 +113,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   })
   const [tickPlaybackMode, setTickPlaybackMode] = useState<TickPlaybackMode>('normal')
   const [queuedTickSteps, setQueuedTickSteps] = useState(0)
+  const [queuedPartyAction, setQueuedPartyAction] = useState<QueuedPartyAction | null>(null)
   const [queuedThrowTarget, setQueuedThrowTarget] = useState<Vector2 | null>(null)
   const [isThrowTargeting, setIsThrowTargeting] = useState(false)
   const [fps, setFps] = useState(0)
@@ -517,6 +523,70 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
     return dropCarriedItemAtPosition(state, throwTarget)
   }
 
+  const processQueuedPartyActionTick = (state: GameState, action: QueuedPartyAction): GameState => {
+    if (hasArtifactExtracted(state.party, state.map.extractionZone)) {
+      return state
+    }
+
+    if (isPartyDefeated(state.party) || isPartyRecovering(state.party, state.gameTime)) {
+      return state
+    }
+
+    if (action.type === 'pickupSelected') {
+      const selectedCarryable = action.selectedType === 'item'
+        ? state.map.items.find((item) => item.id === action.selectedId)
+        : action.selectedType === 'food'
+          ? state.map.food.find((food) => food.id === action.selectedId)
+          : action.selectedType === 'trap'
+            ? state.map.traps.find((trap) => trap.id === action.selectedId && isPickupableTrap(trap))
+            : (isArtifactOnMap(state.map.artifact) && state.map.artifact.id === action.selectedId ? state.map.artifact : undefined)
+
+      if (!selectedCarryable) {
+        return state
+      }
+
+      return interactWithCarryable(state, selectedCarryable)
+    }
+
+    if (action.type === 'setTrapSelected') {
+      return handleSetTrapOnGround(state, action.trapId)
+    }
+
+    if (action.type === 'dropCarried') {
+      return dropCarriedItemAtPosition(state, state.party.position)
+    }
+
+    if (!state.party.carriedItem || state.party.carriedItem.type !== 'food') {
+      return state
+    }
+
+    const carriedFood = state.party.carriedItem
+    const isSafeFood = SAFE_FOOD_TYPES.has(carriedFood.foodType)
+    const healthDelta = isSafeFood
+      ? 1
+      : -(DANGEROUS_FOOD_DAMAGE[carriedFood.foodType] ?? 0)
+    const nextHealth = Math.max(0, Math.min(MAX_HEARTS, state.party.health + healthDelta))
+    const damageAmount = healthDelta < 0 ? -healthDelta : 0
+
+    return {
+      ...state,
+      party: {
+        ...state.party,
+        carriedItem: null,
+        health: nextHealth,
+        memberStatuses: memberStatusesFromHealth(nextHealth),
+        lastDamageAt: healthDelta < 0 ? state.gameTime : state.party.lastDamageAt,
+        damageFlashUntil: healthDelta < 0 ? state.gameTime + DAMAGE_FLASH_DURATION : state.party.damageFlashUntil,
+        lastDamageTaken: damageAmount,
+        recoveringUntil: state.gameTime + RECOVERY_DURATION_SECONDS,
+        path: [],
+        targetPosition: null,
+      },
+      isMoving: false,
+      selectedObject: null,
+    }
+  }
+
   const handleSetTrapOnGround = (state: GameState, trapId: string): GameState => {
     const selectedTrap = state.map.traps.find((trap) => trap.id === trapId)
     if (!selectedTrap || !isPortableTrap(selectedTrap)) {
@@ -592,6 +662,30 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
 
     return () => clearTimeout(timeout)
   }, [queuedThrowTarget, queuedTickSteps, tickPlaybackMode])
+
+  useEffect(() => {
+    if (!queuedPartyAction) {
+      return
+    }
+
+    if (tickPlaybackMode === 'paused') {
+      if (queuedTickSteps <= 0) {
+        return
+      }
+
+      setGameState((prev) => processQueuedPartyActionTick(prev, queuedPartyAction))
+      setQueuedPartyAction(null)
+      return
+    }
+
+    const simTickMs = tickPlaybackMode === 'full' ? 1 : CREATURE_TICK_MS
+    const timeout = setTimeout(() => {
+      setGameState((prev) => processQueuedPartyActionTick(prev, queuedPartyAction))
+      setQueuedPartyAction(null)
+    }, simTickMs)
+
+    return () => clearTimeout(timeout)
+  }, [queuedPartyAction, queuedTickSteps, tickPlaybackMode])
 
   const runCreatureSimulationTick = useCallback(() => {
     setGameState((prev) => {
@@ -1212,73 +1306,64 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   }, [gameState.map.objects, gameState.party.carriedItem, gameState.party.position, isThrowTargeting])
 
   const handlePickUpSelected = useCallback(() => {
-    setGameState((prev) => {
-      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
-        return prev
-      }
+    if (hasArtifactExtracted(gameState.party, gameState.map.extractionZone)) {
+      return
+    }
 
-      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
-        return prev
-      }
+    if (isPartyDefeated(gameState.party) || isPartyRecovering(gameState.party, gameState.gameTime)) {
+      return
+    }
 
-      if (
-        !prev.selectedObject ||
-        (prev.selectedObject.type !== 'item' &&
-          prev.selectedObject.type !== 'food' &&
-          prev.selectedObject.type !== 'trap' &&
-          prev.selectedObject.type !== 'artifact')
-      ) {
-        return prev
-      }
+    if (
+      !gameState.selectedObject ||
+      (gameState.selectedObject.type !== 'item' &&
+        gameState.selectedObject.type !== 'food' &&
+        gameState.selectedObject.type !== 'trap' &&
+        gameState.selectedObject.type !== 'artifact')
+    ) {
+      return
+    }
 
-      const selectedCarryable = prev.selectedObject.type === 'item'
-        ? prev.map.items.find((item) => item.id === prev.selectedObject?.id)
-        : prev.selectedObject.type === 'food'
-          ? prev.map.food.find((food) => food.id === prev.selectedObject?.id)
-          : prev.selectedObject.type === 'trap'
-            ? prev.map.traps.find((trap) => trap.id === prev.selectedObject?.id && isPickupableTrap(trap))
-            : (isArtifactOnMap(prev.map.artifact) && prev.map.artifact.id === prev.selectedObject?.id ? prev.map.artifact : undefined)
-
-      if (!selectedCarryable) {
-        return prev
-      }
-
-      return interactWithCarryable(prev, selectedCarryable)
+    setIsThrowTargeting(false)
+    setQueuedPartyAction({
+      type: 'pickupSelected',
+      selectedId: gameState.selectedObject.id,
+      selectedType: gameState.selectedObject.type,
     })
-  }, [])
+  }, [gameState])
 
   const handleSetTrapSelected = useCallback(() => {
-    setGameState((prev) => {
-      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
-        return prev
-      }
+    if (hasArtifactExtracted(gameState.party, gameState.map.extractionZone)) {
+      return
+    }
 
-      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
-        return prev
-      }
+    if (isPartyDefeated(gameState.party) || isPartyRecovering(gameState.party, gameState.gameTime)) {
+      return
+    }
 
-      if (prev.selectedObject?.type !== 'trap') {
-        return prev
-      }
+    if (gameState.selectedObject?.type !== 'trap') {
+      return
+    }
 
-      return handleSetTrapOnGround(prev, prev.selectedObject.id)
+    setIsThrowTargeting(false)
+    setQueuedPartyAction({
+      type: 'setTrapSelected',
+      trapId: gameState.selectedObject.id,
     })
-  }, [])
+  }, [gameState])
 
   const handleDropCarried = useCallback(() => {
     setIsThrowTargeting(false)
-    setGameState((prev) => {
-      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
-        return prev
-      }
+    if (hasArtifactExtracted(gameState.party, gameState.map.extractionZone)) {
+      return
+    }
 
-      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
-        return prev
-      }
+    if (isPartyDefeated(gameState.party) || isPartyRecovering(gameState.party, gameState.gameTime)) {
+      return
+    }
 
-      return dropCarriedItemAtPosition(prev, prev.party.position)
-    })
-  }, [])
+    setQueuedPartyAction({ type: 'dropCarried' })
+  }, [gameState])
 
   const handleThrowCarried = useCallback(() => {
     if (hasArtifactExtracted(gameState.party, gameState.map.extractionZone)) {
@@ -1298,50 +1383,25 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
 
   const handleEatCarried = useCallback(() => {
     setIsThrowTargeting(false)
-    setGameState((prev) => {
-      if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
-        return prev
-      }
+    if (hasArtifactExtracted(gameState.party, gameState.map.extractionZone)) {
+      return
+    }
 
-      if (isPartyDefeated(prev.party) || isPartyRecovering(prev.party, prev.gameTime)) {
-        return prev
-      }
+    if (isPartyDefeated(gameState.party) || isPartyRecovering(gameState.party, gameState.gameTime)) {
+      return
+    }
 
-      if (!prev.party.carriedItem || prev.party.carriedItem.type !== 'food') {
-        return prev
-      }
+    if (!gameState.party.carriedItem || gameState.party.carriedItem.type !== 'food') {
+      return
+    }
 
-      const carriedFood = prev.party.carriedItem
-      const isSafeFood = SAFE_FOOD_TYPES.has(carriedFood.foodType)
-      const healthDelta = isSafeFood
-        ? 1
-        : -(DANGEROUS_FOOD_DAMAGE[carriedFood.foodType] ?? 0)
-      const nextHealth = Math.max(0, Math.min(MAX_HEARTS, prev.party.health + healthDelta))
-      const damageAmount = healthDelta < 0 ? -healthDelta : 0
-
-      return {
-        ...prev,
-        party: {
-          ...prev.party,
-          carriedItem: null,
-          health: nextHealth,
-          memberStatuses: memberStatusesFromHealth(nextHealth),
-          lastDamageAt: healthDelta < 0 ? prev.gameTime : prev.party.lastDamageAt,
-          damageFlashUntil: healthDelta < 0 ? prev.gameTime + DAMAGE_FLASH_DURATION : prev.party.damageFlashUntil,
-          lastDamageTaken: damageAmount,
-          recoveringUntil: prev.gameTime + RECOVERY_DURATION_SECONDS,
-          path: [],
-          targetPosition: null,
-        },
-        isMoving: false,
-        selectedObject: null,
-      }
-    })
-  }, [])
+    setQueuedPartyAction({ type: 'eatCarried' })
+  }, [gameState])
 
   useEffect(() => {
     if (!gameState.party.carriedItem || gameState.party.carriedItem.type !== 'food') {
       setIsThrowTargeting(false)
+      setQueuedThrowTarget(null)
     }
   }, [gameState.party.carriedItem])
 
