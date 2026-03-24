@@ -573,7 +573,7 @@ const CREATURE_TEMPLATES: Record<CreatureSpecies, CreatureTemplate> = {
   },
   spider: {
     species: 'spider',
-    color: '#2F4F4F',
+    color: '#1e90ff',
     width: 20,
     height: 20,
     name: 'Giant Spider',

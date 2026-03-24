@@ -102,9 +102,15 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     return info
   }
 
+  const cycleSecToHHMM = (s: number): string => {
+    const totalMin = Math.floor(s * 6)
+    const h = Math.floor(totalMin / 60) % 24
+    const m = totalMin % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+
   const getCreatureDescription = (creature: Creature): string => {
-    let desc = `= ${creature.name.toUpperCase()} =\n\n`
-    desc += `${creature.description}\n\n`
+    let desc = `${creature.description}\n\n`
     
     // Show current state
     const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
@@ -139,9 +145,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     }
     
     // Show sleep schedule
-    const sleepStart = Math.floor(creature.sleepSchedule.sleepStart)
-    const sleepEnd = Math.floor(creature.sleepSchedule.sleepEnd)
-    desc += `[SLEEP] ${sleepStart}-${sleepEnd}s ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
+    const sleepStart = creature.sleepSchedule.sleepStart
+    const sleepEnd = creature.sleepSchedule.sleepEnd
+    desc += `[SLEEP] ${cycleSecToHHMM(sleepStart)}–${cycleSecToHHMM(sleepEnd)} ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
     desc += `[DETECTION] ${getDetectionModeLabel(creature)}\n`
     desc += `[RADIUS NEAR] ${Math.floor(creature.alertRadius)}px\n`
     desc += `[RADIUS FAR] ${Math.floor(creature.farBehaviorRadius)}px\n`

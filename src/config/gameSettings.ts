@@ -188,7 +188,7 @@ export const GAME_SETTINGS = {
     itemTemplateRotation: ['torch', 'food_ration', 'treasure'] as ItemTemplate[],
     trapColorsByTargetSpecies: {
       rat: '#f4d03f',
-      spider: '#8e44ad',
+      spider: '#1e90ff',
       goblin: '#2ecc71',
       myconid: '#9b59b6',
       owl: '#f39c12',

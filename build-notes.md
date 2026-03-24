@@ -53,3 +53,4 @@
 - 2026w13-1.4 — Fix in-game clock progression from elapsed real time
 - 2026w13-1.5 — Remove second countdowns from recovery, alert, and trap arming labels
 - 2026w13-1.6 — Fix memberStatuses sync, aggro grace zone, difficulty vision scaling, add refuge zones
+- 2026w13-1.7 — Fix aggro circle flash, remove dup creature name, sleep HH:MM, spider bright blue
