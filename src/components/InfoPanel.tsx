@@ -11,9 +11,12 @@ interface InfoPanelProps {
   selectedObject: GameObject | null
   party: Party
   clockLabel: string
+  clockDay: number
   cycleTime: number
   gameTime: number
   tickPlaybackMode: TickPlaybackMode
+  isThrowTargeting: boolean
+  throwRadius: number
   fps: number
   totalCreatures: number
   activeAiCreatures: number
@@ -22,10 +25,12 @@ interface InfoPanelProps {
   isRecovering: boolean
   canPickUpSelected: boolean
   canSetTrapSelected: boolean
+  canThrowCarried: boolean
   canDropCarried: boolean
   canEatCarried: boolean
   onPickUpSelected: () => void
   onSetTrapSelected: () => void
+  onThrowCarried: () => void
   onDropCarried: () => void
   onEatCarried: () => void
   onPauseTicks: () => void
@@ -37,9 +42,12 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   selectedObject,
   party,
   clockLabel,
+  clockDay,
   cycleTime,
   gameTime,
   tickPlaybackMode,
+  isThrowTargeting,
+  throwRadius,
   fps,
   totalCreatures,
   activeAiCreatures,
@@ -48,10 +56,12 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   isRecovering,
   canPickUpSelected,
   canSetTrapSelected,
+  canThrowCarried,
   canDropCarried,
   canEatCarried,
   onPickUpSelected,
   onSetTrapSelected,
+  onThrowCarried,
   onDropCarried,
   onEatCarried,
   onPauseTicks,
@@ -68,7 +78,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 
   const displayPartyInfo = (): string => {
     let info = `= PARTY STATUS =\n\n`
-    info += `[TIME] ${getTimeOfDay(cycleTime)} (${Math.floor(cycleTime)}s)\n\n`
+    info += `[TIME] Day ${clockDay} ${clockLabel} | ${getTimeOfDay(cycleTime)}\n\n`
     info += `[SIM] ${getTickPlaybackModeLabel(tickPlaybackMode)}\n\n`
     info += `[HEALTH] ${formatHealthHearts(party.health)} (${party.health}/3)\n\n`
     info += `[SPEED] ${formatPartySpeedLabel(party.health)}\n\n`
@@ -76,7 +86,11 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     info += `[POSITION] (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
     info += `[CARRYING] ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
     info += `[OBSERVED] ${party.observedCreatures.size} creatures\n\n`
-    info += `[CONTROLS] Use [PICK UP], [SET TRAP], [DROP], and [EAT] actions below\n\n`
+    info += `[CONTROLS] Use [PICK UP], [SET TRAP], [THROW], [DROP], and [EAT] actions below\n\n`
+
+    if (isThrowTargeting) {
+      info += `[THROW MODE] Click walkable ground within ${Math.floor(throwRadius)}px\n\n`
+    }
 
     if (isDefeated) {
       info += `[PROGRESS] Game over. Party defeated.`
@@ -254,6 +268,14 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             onClick={onSetTrapSelected}
           >
             [SET TRAP]
+          </button>
+          <button
+            type="button"
+            className="action-button"
+            disabled={!canThrowCarried}
+            onClick={onThrowCarried}
+          >
+            {isThrowTargeting ? '[THROW: AIM]' : '[THROW]'}
           </button>
           <button
             type="button"

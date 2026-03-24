@@ -45,6 +45,7 @@ export const GAME_SETTINGS = {
     speedPerTick: 5,
     interactionRadius: 30,
     pickupRadius: 30,
+    throwRadius: 280,
     timeStep: 0.001,
   },
   npc: {

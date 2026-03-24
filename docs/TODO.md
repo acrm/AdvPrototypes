@@ -127,11 +127,11 @@
 - [x] Speed penalty visualization when wounded
 
 ### Interaction Mechanics & Environmental Engagement
-- [ ] **Projectile Food Throw:** Drop food at distance (not just at party location)
-  - [ ] "Throw" action in info panel for held food items
-  - [ ] Food lands at targeted position within visible range
-  - [ ] Creature attraction based on sight + proximity to landing zone
-  - [ ] Allows remote creature luring and corridor control
+- [x] **Projectile Food Throw:** Drop food at distance (not just at party location)
+  - [x] "Throw" action in info panel for held food items
+  - [x] Food lands at targeted position within visible range
+  - [x] Creature attraction based on sight + proximity to landing zone
+  - [x] Allows remote creature luring and corridor control
 - [ ] **Visible Trap Coverage:** Armed traps display their full trigger area
   - [ ] Trigger radius visualized as a circle/grid overlay (e.g., 3×3 chunk cells = 75px radius)
   - [ ] Color-coded by trap species target

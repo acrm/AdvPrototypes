@@ -54,3 +54,4 @@
 - 2026w13-1.5 — Remove second countdowns from recovery, alert, and trap arming labels
 - 2026w13-1.6 — Fix memberStatuses sync, aggro grace zone, difficulty vision scaling, add refuge zones
 - 2026w13-1.7 — Fix aggro circle flash, remove dup creature name, sleep HH:MM, spider bright blue
+- 2026w13-1.8 — Tick-driven party movement, food throw action, and time format fix

@@ -42,12 +42,12 @@ import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
 import './DungeonGame.css'
 
-const PLAYER_MOVEMENT_TICK_MS = GAME_SETTINGS.player.movementTickMs
 const PLAYER_SPEED_PER_TICK = GAME_SETTINGS.player.speedPerTick
 const PLAYER_INTERACTION_RADIUS = GAME_SETTINGS.player.interactionRadius
 const PLAYER_PICKUP_RADIUS = GAME_SETTINGS.player.pickupRadius
-const PLAYER_TIME_STEP = GAME_SETTINGS.player.timeStep
+const PLAYER_THROW_RADIUS = GAME_SETTINGS.player.throwRadius
 const CREATURE_TICK_MS = GAME_SETTINGS.cycle.creatureTickMs
+const PLAYER_MOVEMENT_STEPS_PER_SIM_TICK = Math.max(1, Math.round(CREATURE_TICK_MS / GAME_SETTINGS.player.movementTickMs))
 const CYCLE_STEP = GAME_SETTINGS.cycle.creatureTimeStep
 const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
 const NPC_PATROL_START_CHANCE = GAME_SETTINGS.npc.patrolStartChancePerTick
@@ -108,6 +108,8 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   })
   const [tickPlaybackMode, setTickPlaybackMode] = useState<TickPlaybackMode>('normal')
   const [queuedTickSteps, setQueuedTickSteps] = useState(0)
+  const [queuedThrowTarget, setQueuedThrowTarget] = useState<Vector2 | null>(null)
+  const [isThrowTargeting, setIsThrowTargeting] = useState(false)
   const [fps, setFps] = useState(0)
 
   // Notify parent when game ends (victory or defeat)
@@ -367,6 +369,154 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
     }
   }
 
+  const processPartyMovementTick = (state: GameState): GameState => {
+    if (!state.isMoving) {
+      return state
+    }
+
+    if (hasArtifactExtracted(state.party, state.map.extractionZone) || state.party.health <= 0) {
+      return {
+        ...state,
+        party: {
+          ...state.party,
+          path: [],
+          targetPosition: null,
+        },
+        isMoving: false,
+      }
+    }
+
+    if (state.party.recoveringUntil !== null && state.gameTime < state.party.recoveringUntil) {
+      return {
+        ...state,
+        party: {
+          ...state.party,
+          path: [],
+          targetPosition: null,
+        },
+        isMoving: false,
+      }
+    }
+
+    if (state.party.path.length === 0) {
+      return {
+        ...state,
+        party: { ...state.party, targetPosition: null },
+        isMoving: false,
+      }
+    }
+
+    const speed =
+      PLAYER_SPEED_PER_TICK *
+      PLAYER_MOVEMENT_STEPS_PER_SIM_TICK *
+      getPartySpeedMultiplier(state.party.health)
+
+    if (speed <= 0) {
+      return {
+        ...state,
+        party: {
+          ...state.party,
+          path: [],
+          targetPosition: null,
+        },
+        isMoving: false,
+      }
+    }
+
+    const movementResult = stepAlongWaypoints({
+      position: state.party.position,
+      direction: state.party.direction,
+      waypoints: state.party.path,
+      speed,
+      waypointReachDistance: speed,
+      navigationCellSize: GRID_SIZE,
+    })
+
+    if (!movementResult.arrived) {
+      return {
+        ...state,
+        party: {
+          ...state.party,
+          position: movementResult.position,
+          path: movementResult.waypoints,
+          direction: movementResult.direction,
+        },
+      }
+    }
+
+    let updatedMap = state.map
+    let carriedItem = state.party.carriedItem
+    const finalPosition = movementResult.position
+
+    if (!carriedItem) {
+      const targetPosition = state.party.targetPosition ?? finalPosition
+      const nearbyCarryable = findNearbyCarryable(
+        state.map.items,
+        state.map.food,
+        state.map.traps,
+        state.map.artifact,
+        targetPosition,
+        PLAYER_PICKUP_RADIUS
+      )
+
+      if (nearbyCarryable) {
+        updatedMap = {
+          ...state.map,
+          items: nearbyCarryable.type === 'item'
+            ? state.map.items.filter((item) => item.id !== nearbyCarryable.id)
+            : state.map.items,
+          food: nearbyCarryable.type === 'food'
+            ? state.map.food.filter((food) => food.id !== nearbyCarryable.id)
+            : state.map.food,
+          traps: nearbyCarryable.type === 'trap'
+            ? state.map.traps.filter((trap) => trap.id !== nearbyCarryable.id)
+            : state.map.traps,
+          artifact: nearbyCarryable.type === 'artifact'
+            ? hideArtifact(state.map.artifact)
+            : state.map.artifact,
+        }
+        carriedItem = nearbyCarryable
+      }
+    }
+
+    return {
+      ...state,
+      map: updatedMap,
+      party: {
+        ...state.party,
+        position: finalPosition,
+        path: [],
+        targetPosition: null,
+        carriedItem,
+      },
+      isMoving: false,
+    }
+  }
+
+  const processQueuedThrowTick = (state: GameState, throwTarget: Vector2): GameState => {
+    if (hasArtifactExtracted(state.party, state.map.extractionZone)) {
+      return state
+    }
+
+    if (isPartyDefeated(state.party) || isPartyRecovering(state.party, state.gameTime)) {
+      return state
+    }
+
+    if (!state.party.carriedItem || state.party.carriedItem.type !== 'food') {
+      return state
+    }
+
+    if (distanceBetween(throwTarget, state.party.position) > PLAYER_THROW_RADIUS) {
+      return state
+    }
+
+    if (!isPositionWalkable(throwTarget, state.map.objects)) {
+      return state
+    }
+
+    return dropCarriedItemAtPosition(state, throwTarget)
+  }
+
   const handleSetTrapOnGround = (state: GameState, trapId: string): GameState => {
     const selectedTrap = state.map.traps.find((trap) => trap.id === trapId)
     if (!selectedTrap || !isPortableTrap(selectedTrap)) {
@@ -401,147 +551,47 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
     }
   }
 
-  // Update party position along path
   useEffect(() => {
-    if (!gameState.isMoving || tickPlaybackMode === 'paused') return
+    if (tickPlaybackMode === 'paused') {
+      if (queuedTickSteps <= 0) {
+        return
+      }
 
-    const playerTickMs = tickPlaybackMode === 'full' ? 1 : PLAYER_MOVEMENT_TICK_MS
+      setGameState((prev) => processPartyMovementTick(prev))
+      return
+    }
 
+    const simTickMs = tickPlaybackMode === 'full' ? 1 : CREATURE_TICK_MS
     const interval = setInterval(() => {
-      setGameState((prev) => {
-        if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
-          return {
-            ...prev,
-            party: {
-              ...prev.party,
-              path: [],
-              targetPosition: null,
-            },
-            isMoving: false,
-          }
-        }
-
-        if (prev.party.health <= 0) {
-          return {
-            ...prev,
-            party: {
-              ...prev.party,
-              path: [],
-              targetPosition: null,
-            },
-            isMoving: false,
-          }
-        }
-
-        if (prev.party.recoveringUntil !== null && prev.gameTime < prev.party.recoveringUntil) {
-          return {
-            ...prev,
-            party: {
-              ...prev.party,
-              path: [],
-              targetPosition: null,
-            },
-            isMoving: false,
-          }
-        }
-
-        if (prev.party.path.length === 0) {
-          return {
-            ...prev,
-            party: { ...prev.party, targetPosition: null },
-            isMoving: false,
-          }
-        }
-
-        const speed = PLAYER_SPEED_PER_TICK * getPartySpeedMultiplier(prev.party.health)
-        if (speed <= 0) {
-          return {
-            ...prev,
-            party: {
-              ...prev.party,
-              path: [],
-              targetPosition: null,
-            },
-            isMoving: false,
-          }
-        }
-
-        const movementResult = stepAlongWaypoints({
-          position: prev.party.position,
-          direction: prev.party.direction,
-          waypoints: prev.party.path,
-          speed,
-          waypointReachDistance: speed,
-          navigationCellSize: GRID_SIZE,
-        })
-
-        if (movementResult.arrived) {
-          // Reached target: stop, clear target, and auto-pick nearby carryable if possible.
-          let updatedMap = prev.map
-          let carriedItem = prev.party.carriedItem
-          const finalPosition = movementResult.position
-
-          if (!carriedItem) {
-            const targetPosition = prev.party.targetPosition ?? finalPosition
-            const nearbyCarryable = findNearbyCarryable(
-              prev.map.items,
-              prev.map.food,
-              prev.map.traps,
-              prev.map.artifact,
-              targetPosition,
-              PLAYER_PICKUP_RADIUS
-            )
-
-            if (nearbyCarryable) {
-              updatedMap = {
-                ...prev.map,
-                items: nearbyCarryable.type === 'item'
-                  ? prev.map.items.filter((item) => item.id !== nearbyCarryable.id)
-                  : prev.map.items,
-                food: nearbyCarryable.type === 'food'
-                  ? prev.map.food.filter((food) => food.id !== nearbyCarryable.id)
-                  : prev.map.food,
-                traps: nearbyCarryable.type === 'trap'
-                  ? prev.map.traps.filter((trap) => trap.id !== nearbyCarryable.id)
-                  : prev.map.traps,
-                artifact: nearbyCarryable.type === 'artifact'
-                  ? hideArtifact(prev.map.artifact)
-                  : prev.map.artifact,
-              }
-              carriedItem = nearbyCarryable
-            }
-          }
-
-          return {
-            ...prev,
-            map: updatedMap,
-            party: {
-              ...prev.party,
-              position: finalPosition,
-              path: [],
-              targetPosition: null,
-              carriedItem,
-            },
-            isMoving: false,
-            gameTime: prev.gameTime + PLAYER_TIME_STEP,
-          }
-        }
-
-        return {
-          ...prev,
-          party: {
-            ...prev.party,
-            position: movementResult.position,
-            path: movementResult.waypoints,
-            direction: movementResult.direction,
-          },
-          gameTime: prev.gameTime + PLAYER_TIME_STEP,
-        }
-      })
-    }, playerTickMs)
+      setGameState((prev) => processPartyMovementTick(prev))
+    }, simTickMs)
 
     return () => clearInterval(interval)
-  }, [gameState.isMoving, tickPlaybackMode])
+  }, [queuedTickSteps, tickPlaybackMode])
+
+  useEffect(() => {
+    if (!queuedThrowTarget) {
+      return
+    }
+
+    if (tickPlaybackMode === 'paused') {
+      if (queuedTickSteps <= 0) {
+        return
+      }
+
+      setGameState((prev) => processQueuedThrowTick(prev, queuedThrowTarget))
+      setQueuedThrowTarget(null)
+      return
+    }
+
+    const simTickMs = tickPlaybackMode === 'full' ? 1 : CREATURE_TICK_MS
+    const timeout = setTimeout(() => {
+      setGameState((prev) => processQueuedThrowTick(prev, queuedThrowTarget))
+      setQueuedThrowTarget(null)
+    }, simTickMs)
+
+    return () => clearTimeout(timeout)
+  }, [queuedThrowTarget, queuedTickSteps, tickPlaybackMode])
 
   const runCreatureSimulationTick = useCallback(() => {
     setGameState((prev) => {
@@ -1036,6 +1086,24 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   }, [])
 
   const handleCanvasClick = useCallback((clickPos: Vector2) => {
+    if (isThrowTargeting) {
+      const canQueueThrow =
+        gameState.party.carriedItem?.type === 'food' &&
+        distanceBetween(clickPos, gameState.party.position) <= PLAYER_THROW_RADIUS &&
+        isPositionWalkable(clickPos, gameState.map.objects)
+
+      setIsThrowTargeting(false)
+      if (canQueueThrow) {
+        setQueuedThrowTarget(clickPos)
+        setGameState((prev) => ({
+          ...prev,
+          selectedObject: null,
+        }))
+      }
+
+      return
+    }
+
     setGameState((prev) => {
       if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
         return prev
@@ -1141,7 +1209,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
         selectedObject: null,
       }
     })
-  }, [])
+  }, [gameState.map.objects, gameState.party.carriedItem, gameState.party.position, isThrowTargeting])
 
   const handlePickUpSelected = useCallback(() => {
     setGameState((prev) => {
@@ -1198,6 +1266,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   }, [])
 
   const handleDropCarried = useCallback(() => {
+    setIsThrowTargeting(false)
     setGameState((prev) => {
       if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
         return prev
@@ -1211,7 +1280,24 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
     })
   }, [])
 
+  const handleThrowCarried = useCallback(() => {
+    if (hasArtifactExtracted(gameState.party, gameState.map.extractionZone)) {
+      return
+    }
+
+    if (isPartyDefeated(gameState.party) || isPartyRecovering(gameState.party, gameState.gameTime)) {
+      return
+    }
+
+    if (!gameState.party.carriedItem || gameState.party.carriedItem.type !== 'food') {
+      return
+    }
+
+    setIsThrowTargeting((active) => !active)
+  }, [gameState])
+
   const handleEatCarried = useCallback(() => {
+    setIsThrowTargeting(false)
     setGameState((prev) => {
       if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
         return prev
@@ -1252,6 +1338,12 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       }
     })
   }, [])
+
+  useEffect(() => {
+    if (!gameState.party.carriedItem || gameState.party.carriedItem.type !== 'food') {
+      setIsThrowTargeting(false)
+    }
+  }, [gameState.party.carriedItem])
 
   const isPointInRect = (point: Vector2, obj: GameObject): boolean => {
     return (
@@ -1296,9 +1388,12 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
         selectedObject={gameState.selectedObject}
         party={gameState.party}
         clockLabel={clockLabel}
+        clockDay={gameState.clock.day}
         cycleTime={gameState.cycleTime}
         gameTime={gameState.gameTime}
         tickPlaybackMode={tickPlaybackMode}
+        isThrowTargeting={isThrowTargeting}
+        throwRadius={PLAYER_THROW_RADIUS}
         fps={fps}
         totalCreatures={totalCreatures}
         activeAiCreatures={activeAiCreatures}
@@ -1324,6 +1419,12 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           selectedSettableTrap &&
           distanceBetween(gameState.party.position, selectedSettableTrap.position) <= PLAYER_PICKUP_RADIUS
         )}
+        canThrowCarried={
+          Boolean(gameState.party.carriedItem?.type === 'food') &&
+          !isVictory &&
+          !isDefeated &&
+          !isRecovering
+        }
         canDropCarried={Boolean(gameState.party.carriedItem) && !isVictory && !isDefeated && !isRecovering}
         canEatCarried={
           Boolean(gameState.party.carriedItem?.type === 'food') &&
@@ -1333,6 +1434,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
         }
         onPickUpSelected={handlePickUpSelected}
         onSetTrapSelected={handleSetTrapSelected}
+        onThrowCarried={handleThrowCarried}
         onDropCarried={handleDropCarried}
         onEatCarried={handleEatCarried}
         onPauseTicks={handlePauseTicks}
