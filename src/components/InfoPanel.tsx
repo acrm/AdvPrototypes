@@ -10,9 +10,13 @@ type TickPlaybackMode = 'paused' | 'normal' | 'full'
 interface InfoPanelProps {
   selectedObject: GameObject | null
   party: Party
+  clockLabel: string
   cycleTime: number
   gameTime: number
   tickPlaybackMode: TickPlaybackMode
+  fps: number
+  totalCreatures: number
+  activeAiCreatures: number
   isVictory: boolean
   isDefeated: boolean
   isRecovering: boolean
@@ -32,9 +36,13 @@ interface InfoPanelProps {
 export const InfoPanel: React.FC<InfoPanelProps> = ({
   selectedObject,
   party,
+  clockLabel,
   cycleTime,
   gameTime,
   tickPlaybackMode,
+  fps,
+  totalCreatures,
+  activeAiCreatures,
   isVictory,
   isDefeated,
   isRecovering,
@@ -144,7 +152,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     if (creature.threat) desc += `[THREAT] ${creature.threat}\n`
     
     if (creature.dietPriorities.length > 0) {
-      desc += `[DIET PRIORITY] ${creature.dietPriorities.map(formatDietTarget).join(' > ')}\n`
+      desc += `[DIET PRIORITY] Highest to lowest\n`
+      creature.dietPriorities.forEach((target, index) => {
+        desc += `${index + 1}. ${formatDietTarget(target)}\n`
+      })
 
       const predatorTargets = creature.dietPriorities
         .filter((target) => target.startsWith('creature:') || target === 'player')
@@ -192,6 +203,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   }
 
   let content: string = ''
+  const selectedCreatureName = selectedObject?.type === 'creature'
+    ? selectedObject.name
+    : null
 
   if (selectedObject) {
     if (selectedObject.type === 'creature') {
@@ -210,7 +224,13 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   return (
     <div className="info-panel">
       <div className="panel-header">
-        <h2>INFO</h2>
+        <div className="panel-header-main-row">
+          <h2>INFO</h2>
+          <div className="panel-clock">{clockLabel}</div>
+        </div>
+        <div className="panel-header-subtitle">
+          {selectedCreatureName ? `[CREATURE] ${selectedCreatureName}` : '[CREATURE] -'}
+        </div>
       </div>
       <div className="panel-content">
         <div className="panel-content-details">
@@ -252,6 +272,11 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
         </div>
         <div className="debug-controls">
           <div className="debug-controls-title">[SIM DEBUG] {getTickPlaybackModeLabel(tickPlaybackMode)}</div>
+          <div className="debug-stats">
+            <div className="debug-stat-line">[FPS] {fps.toFixed(1)}</div>
+            <div className="debug-stat-line">[CREATURES TOTAL] {totalCreatures}</div>
+            <div className="debug-stat-line">[CREATURES ACTIVE AI] {activeAiCreatures}</div>
+          </div>
           <div className="panel-actions debug-actions">
             <button
               type="button"
@@ -338,19 +363,75 @@ function getDetectionModeLabel(creature: Creature): string {
 
 function formatDietTarget(target: DietTarget): string {
   if (target === 'player') {
-    return 'player'
+    return 'Adventuring Party'
   }
 
   const [prefix, value] = target.split(':')
   if (prefix === 'food') {
-    return value.replace('_', ' ')
+    return getFoodDisplayName(value)
   }
 
   if (prefix === 'creature') {
-    return value
+    return getCreatureDisplayName(value)
   }
 
   return target
+}
+
+function getFoodDisplayName(foodType: string): string {
+  if (foodType === 'fungi') {
+    return 'Fungi'
+  }
+
+  if (foodType === 'organic_matter') {
+    return 'Organic Matter'
+  }
+
+  if (foodType === 'meat') {
+    return 'Meat'
+  }
+
+  if (foodType === 'insects') {
+    return 'Insects'
+  }
+
+  return foodType
+}
+
+function getCreatureDisplayName(species: string): string {
+  if (species === 'rat') {
+    return 'Giant Rat'
+  }
+
+  if (species === 'spider') {
+    return 'Giant Spider'
+  }
+
+  if (species === 'goblin') {
+    return 'Goblin'
+  }
+
+  if (species === 'myconid') {
+    return 'Myconid'
+  }
+
+  if (species === 'owl') {
+    return 'Owl'
+  }
+
+  if (species === 'bat') {
+    return 'Bat'
+  }
+
+  if (species === 'wolf') {
+    return 'Wolf'
+  }
+
+  if (species === 'kobold') {
+    return 'Kobold'
+  }
+
+  return species
 }
 
 function getCreatureConditionLabel(creature: Creature, gameTime: number): string {

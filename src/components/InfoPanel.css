@@ -16,13 +16,33 @@
   background-color: #0f1712;
 }
 
+.panel-header-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .panel-header h2 {
   margin: 0;
   color: #bfdcbf;
-  text-align: center;
+  text-align: left;
   font-size: 1.05rem;
   letter-spacing: 3px;
   font-weight: 600;
+}
+
+.panel-clock {
+  color: #d8cb8f;
+  font-size: 0.88rem;
+  letter-spacing: 1px;
+}
+
+.panel-header-subtitle {
+  margin-top: 0.45rem;
+  color: #89ae89;
+  font-size: 0.78rem;
+  letter-spacing: 0.6px;
 }
 
 .panel-content {
@@ -99,6 +119,16 @@
   color: #d8cb8f;
   font-size: 0.82rem;
   letter-spacing: 0.7px;
+}
+
+.debug-stats {
+  margin-bottom: 0.7rem;
+}
+
+.debug-stat-line {
+  color: #9ec39e;
+  font-size: 0.76rem;
+  line-height: 1.4;
 }
 
 .debug-actions {

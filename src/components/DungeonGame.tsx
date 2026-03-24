@@ -103,6 +103,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   })
   const [tickPlaybackMode, setTickPlaybackMode] = useState<TickPlaybackMode>('normal')
   const [queuedTickSteps, setQueuedTickSteps] = useState(0)
+  const [fps, setFps] = useState(0)
 
   // Notify parent when game ends (victory or defeat)
   useEffect(() => {
@@ -110,6 +111,27 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       onGameEnd(hasArtifactExtracted(gameState.party, gameState.map.extractionZone), gameState.clock)
     }
   }, [gameState.sessionStatus]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // UI/debug FPS based on browser animation frames.
+  useEffect(() => {
+    let animationFrameId = 0
+    let frameCount = 0
+    let windowStart = performance.now()
+
+    const tick = (now: number) => {
+      frameCount += 1
+      const elapsed = now - windowStart
+      if (elapsed >= 500) {
+        setFps((frameCount * 1000) / elapsed)
+        frameCount = 0
+        windowStart = now
+      }
+      animationFrameId = requestAnimationFrame(tick)
+    }
+
+    animationFrameId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animationFrameId)
+  }, [])
 
 
   const findNearbyCarryable = (
@@ -1250,6 +1272,11 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
     gameState.map.artifact.id === gameState.selectedObject.id
       ? gameState.map.artifact
       : null
+  const totalCreatures = gameState.map.creatures.length
+  const activeAiCreatures = gameState.map.creatures.filter(
+    (creature) => distanceBetween(creature.position, gameState.party.position) <= AI_RADIUS_PX
+  ).length
+  const clockLabel = `${String(gameState.clock.hour).padStart(2, '0')}:${String(gameState.clock.minute).padStart(2, '0')}`
 
   return (
     <div className="dungeon-game">
@@ -1260,9 +1287,13 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       <InfoPanel
         selectedObject={gameState.selectedObject}
         party={gameState.party}
+        clockLabel={clockLabel}
         cycleTime={gameState.cycleTime}
         gameTime={gameState.gameTime}
         tickPlaybackMode={tickPlaybackMode}
+        fps={fps}
+        totalCreatures={totalCreatures}
+        activeAiCreatures={activeAiCreatures}
         isVictory={isVictory}
         isDefeated={isDefeated}
         isRecovering={isRecovering}
