@@ -84,7 +84,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     }
 
     if (isRecovering && party.recoveringUntil !== null) {
-      info += `[PROGRESS] Recovering (${Math.max(0, party.recoveringUntil - gameTime).toFixed(1)}s)`
+      info += `[PROGRESS] Recovering`
       return info
     }
 
@@ -113,7 +113,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     
     // Show ALERT status
     if (creature.alertUntil !== null && gameTime < creature.alertUntil) {
-      desc += `[ALERT] ⚠️ Active (${Math.max(0, creature.alertUntil - gameTime).toFixed(1)}s\n\n`
+      desc += `[ALERT] ⚠️ Active\n\n`
     }
     
     // Show relation
@@ -184,10 +184,6 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   }
 
   const getTrapDescription = (trap: Trap): string => {
-    const armingRemaining = trap.state === 'arming' && trap.armingStartedAt !== null
-      ? Math.max(0, GAME_SETTINGS.trap.armDelaySeconds - (gameTime - trap.armingStartedAt))
-      : 0
-
     return [
       `= ${trap.name.toUpperCase()} =`,
       '',
@@ -198,7 +194,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
       `[VISIBILITY] ${trap.state === 'portable' ? 'Visible and portable' : 'Hidden after placement'}`,
       `[TARGET SPECIES] ${trap.targetSpecies}`,
       `[TRIGGER RADIUS] ${Math.floor(trap.triggerRadius)}px`,
-      ...(trap.state === 'arming' ? [`[ARMED IN] ${armingRemaining.toFixed(1)}s`] : []),
+      ...(trap.state === 'arming' ? [`[ARMED IN] ...`] : []),
     ].join('\n')
   }
 
