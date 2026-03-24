@@ -28,6 +28,21 @@ export function tickClock(clock: InGameClock, deltaRealSeconds: number): InGameC
   return { day, hour, minute }
 }
 
+/**
+ * Compute clock from total elapsed real seconds since session start.
+ * This avoids losing fractional minutes between ticks.
+ */
+export function clockFromElapsedRealSeconds(elapsedRealSeconds: number): InGameClock {
+  const baseMinutes = startDay * 1440 + startHour * 60 + startMinute
+  const totalMinutes = baseMinutes + elapsedRealSeconds * minutesPerRealSecond
+  const totalMinutesInt = Math.floor(totalMinutes)
+  const day = Math.floor(totalMinutesInt / 1440)
+  const hour = Math.floor((totalMinutesInt % 1440) / 60)
+  const minute = totalMinutesInt % 60
+
+  return { day, hour, minute }
+}
+
 /** Format clock as "Day D  HH:MM". */
 export function formatClock(clock: InGameClock): string {
   const hh = String(clock.hour).padStart(2, '0')

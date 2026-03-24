@@ -50,3 +50,4 @@
 - 2026w13-1.1 — Layered architecture + difficulty/shelter/time/party-member rendering overhaul
 - 2026w13-1.2 — Fix InfoPanel.css malformed nested rule from previous patch
 - 2026w13-1.3 — Pin creature name and HH:MM in info header, numbered diet priorities, debug FPS and AI counters
+- 2026w13-1.4 — Fix in-game clock progression from elapsed real time

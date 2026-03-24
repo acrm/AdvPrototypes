@@ -36,7 +36,7 @@ import {
   updateCreatureAlertState,
   FRIENDLY_FEEDINGS_REQUIRED,
 } from '../game/CreatureAI'
-import { makeInitialClock, tickClock } from '../game/TimeSystem'
+import { clockFromElapsedRealSeconds, makeInitialClock } from '../game/TimeSystem'
 import { isPositionInShelter } from '../game/ShelterSystem'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
@@ -551,7 +551,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       const nextGameTime = prev.gameTime + CYCLE_STEP
       const newCycleTime = (prev.cycleTime + CYCLE_STEP) % CYCLE_DURATION_SECONDS
 
-      const nextClock = tickClock(prev.clock, CYCLE_STEP)
+      const nextClock = clockFromElapsedRealSeconds(nextGameTime)
 
       // Shelter suppression: party stationary inside a '*' chunk → creatures lose far-radius player targeting.
       const partyInShelter =
