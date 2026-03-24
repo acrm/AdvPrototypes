@@ -29,21 +29,21 @@
 //   - Empty walkable chunk category
 
 export const DUNGEON_LAYOUT = `########################
-#*..rFN  #  Is  s R . A#
-#r  #### #  ##s #### # #
-# k #  #m#  ##o r  #k#s#
-###s#mk# ####m#### # # #
-# w #   M os  m #  #r#w#
+#*..rFN  # *Is  s R . A#
+#r  #### #  ##s ####*# #
+# k #* #m#A ##o r  #k#s#
+###s#mk# ## #m#### # # #
+# w # A M os  m #  #r#w#
 # ###m######### #  # # #
 #k o#r  F r m # # I o#w#
-# #w#s####### #   ####w#
-#o# * #m N  #  g m G m #
+# #w#s####### # * ####w#
+#o#A* #m N  # Ag m G m #
 # ##### ### ##########r#
-#bm Bo# # #  A r W w  r#
+#bm Bo# # #* A r W w *r#
 ##### # # # ##########o#
-# * #mr Y m # w m  O r #
+# * #mr Y m # w m  O*r #
 # #s####### #kI ###### #
-#.k mK  S .s ro Fm sA k#
+#.kAmK* S .s ro Fm sA k#
 ########################`
 
 export const GRID_COLS = 24
