@@ -159,6 +159,8 @@
 
 **Cycle Duration:** 240 seconds (full cycle)
 
+**Simulation Tick Rate:** Fixed at 6 ticks per real second (independent of render FPS)
+
 **Creature States:**
 1. **SLEEPING** - Completely motionless, unaware of surroundings
    - Safe to pass nearby

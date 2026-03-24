@@ -56,3 +56,4 @@
 - 2026w13-1.7 — Fix aggro circle flash, remove dup creature name, sleep HH:MM, spider bright blue
 - 2026w13-1.8 — Tick-driven party movement, food throw action, and time format fix
 - 2026w13-1.9 — Queue all party actions on simulation ticks
+- 2026w13-1.10 — Fix simulation to fixed 6 ticks per second

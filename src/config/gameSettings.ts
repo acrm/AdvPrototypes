@@ -37,8 +37,10 @@ export const GAME_SETTINGS = {
   cycle: {
     durationSeconds: 240,
     initialCycleTime: 120,
-    creatureTickMs: 50,
-    creatureTimeStep: 0.05,
+    // Fixed simulation tick rate: exactly 6 ticks per real second.
+    creatureTickMs: 1000 / 6,
+    // Each simulation tick advances by 1/6 real second.
+    creatureTimeStep: 1 / 6,
   },
   player: {
     movementTickMs: 30,
