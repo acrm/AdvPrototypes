@@ -1,10 +1,43 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { Artifact, Creature, CreatureRelation, ExtractionZone, GameState, Vector2, GameObject, Item, Food, Trap } from '../types/game'
+import { Artifact, Creature, GameState, InGameClock, Vector2, GameObject, Item, Food, Trap, Difficulty } from '../types/game'
 import { initializeMap, isSleeping, refreshSpawnZones } from '../systems/MapGenerator'
+import { getShelterChunks } from '../systems/MapGenerator'
 import { findPathWithObstacles, getRandomWalkablePosition, GRID_SIZE, isPositionWalkable } from '../systems/Pathfinding'
-import { createMovementBounds, stepAlongWaypoints, stepTowardsTarget } from '../systems/MovementSystem'
+import { LAYOUT_REGION_SIZE } from '../systems/Pathfinding'
+import { stepAlongWaypoints } from '../systems/MovementSystem'
 import { resolvePredationTick } from '../systems/PredationSystem'
 import { GAME_SETTINGS } from '../config/gameSettings'
+import {
+  distanceBetween,
+  hasArtifactExtracted,
+  hideArtifact,
+  isArtifactOnMap,
+  isCollisionDamageReady,
+  isCreatureDamagingOnCollision,
+  isPartyDefeated,
+  isPartyRecovering,
+  isPickupableTrap,
+  isPortableTrap,
+  isTrapSelectable,
+  getPartySpeedMultiplier,
+  syncSelectedObject,
+} from '../game/GameQueries'
+import {
+  clearAggressionTarget,
+  clearExpiredAggressionState,
+  getFeedingDurationSeconds,
+  getEffectiveAggressionModel,
+  getTrapImmobilizeDuration,
+  isCreatureInAlertRadius,
+  isCreatureInFarBehaviorRadius,
+  moveCreatureAlongWaypoints,
+  resolveCreatureReaction,
+  selectFoodTargetForCreature,
+  updateCreatureAlertState,
+  FRIENDLY_FEEDINGS_REQUIRED,
+} from '../game/CreatureAI'
+import { makeInitialClock, tickClock } from '../game/TimeSystem'
+import { isPositionInShelter } from '../game/ShelterSystem'
 import { DungeonCanvas } from './DungeonCanvas'
 import { InfoPanel } from './InfoPanel'
 import './DungeonGame.css'
@@ -18,33 +51,28 @@ const CREATURE_TICK_MS = GAME_SETTINGS.cycle.creatureTickMs
 const CYCLE_STEP = GAME_SETTINGS.cycle.creatureTimeStep
 const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
 const NPC_PATROL_START_CHANCE = GAME_SETTINGS.npc.patrolStartChancePerTick
-const NPC_WAYPOINT_REACH_MULTIPLIER = GAME_SETTINGS.npc.waypointReachDistanceMultiplier
-const NPC_BOUNDARY_PADDING = GAME_SETTINGS.npc.mapBoundaryPadding
 const [NPC_IDLE_TURN_MIN, NPC_IDLE_TURN_MAX] = GAME_SETTINGS.npc.idleTurnIntervalRange
 const TRAP_ARM_DELAY_SECONDS = GAME_SETTINGS.trap.armDelaySeconds
-const [TRAP_IMMOBILIZE_MIN_SECONDS, TRAP_IMMOBILIZE_MAX_SECONDS] = GAME_SETTINGS.trap.immobilizeDurationRangeSeconds
-const FOOD_FEEDING_DURATION_SECONDS = GAME_SETTINGS.food.feedingDurationSecondsByType
-const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
+// FOOD_FEEDING_DURATION_SECONDS and FRIENDLY_FEEDINGS_REQUIRED are handled by game/CreatureAI
 const MAX_HEARTS = GAME_SETTINGS.health.maxHearts
 const COLLISION_DAMAGE = GAME_SETTINGS.health.collisionDamage
-const COLLISION_DAMAGE_COOLDOWN = GAME_SETTINGS.health.collisionDamageCooldownSeconds
 const DAMAGE_FLASH_DURATION = GAME_SETTINGS.health.damageFlashDurationSeconds
 const RECOVERY_DURATION_SECONDS = GAME_SETTINGS.health.recoveryDurationSeconds
 const SAFE_FOOD_TYPES = new Set(GAME_SETTINGS.health.safeFoodTypes)
 const DANGEROUS_FOOD_DAMAGE = GAME_SETTINGS.health.dangerousFoodDamageByType
-const SPEED_MULTIPLIER_BY_HEALTH = GAME_SETTINGS.health.speedMultiplierByHealth
-const ALERT_DURATION_SECONDS = GAME_SETTINGS.npc.alertDurationSeconds
-const SPECIES_RELATION_MATRIX = GAME_SETTINGS.npc.speciesRelationMatrix
-const AGGRESSION_BOOST_MULTIPLIER = GAME_SETTINGS.npc.aggressionBoostMultiplier
-const AGGRESSION_BOOST_DURATION_SECONDS = GAME_SETTINGS.npc.aggressionBoostDurationSeconds
-const AGGRESSION_BOOST_COOLDOWN_SECONDS = GAME_SETTINGS.npc.aggressionBoostCooldownSeconds
-const HIDDEN_ARTIFACT_POSITION = GAME_SETTINGS.world.hiddenArtifactPosition
-const CREATURE_STEP_SCALES = [1, 0.66, 0.4, 0.2] as const
+const SHELTER_CHUNKS = getShelterChunks()
+const AI_RADIUS_CHUNKS = GAME_SETTINGS.npc.aiProcessingRadiusChunks
+const AI_RADIUS_PX = AI_RADIUS_CHUNKS * LAYOUT_REGION_SIZE
 
 type Carryable = Item | Food | Trap | Artifact
 type TickPlaybackMode = 'paused' | 'normal' | 'full'
 
-export const DungeonGame: React.FC = () => {
+interface DungeonGameProps {
+  difficulty: Difficulty
+  onGameEnd: (isVictory: boolean, clock: InGameClock) => void
+}
+
+export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd }) => {
   const [gameState, setGameState] = useState<GameState>(() => {
     const { map, partyStartPosition } = initializeMap()
     return {
@@ -52,6 +80,7 @@ export const DungeonGame: React.FC = () => {
       party: {
         position: partyStartPosition,
         members: ['Warrior', 'Rogue', 'Cleric'],
+          memberStatuses: ['active', 'active', 'active'],
         path: [],
         targetPosition: null,
         observedCreatures: new Map(),
@@ -67,14 +96,21 @@ export const DungeonGame: React.FC = () => {
       gameTime: 0,
       cycleTime: GAME_SETTINGS.cycle.initialCycleTime,
       isMoving: false,
+      clock: makeInitialClock(),
+      difficulty,
+      sessionStatus: 'running' as const,
     }
   })
   const [tickPlaybackMode, setTickPlaybackMode] = useState<TickPlaybackMode>('normal')
   const [queuedTickSteps, setQueuedTickSteps] = useState(0)
 
-  const distanceBetween = (a: Vector2, b: Vector2): number => {
-    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2))
-  }
+  // Notify parent when game ends (victory or defeat)
+  useEffect(() => {
+    if (gameState.sessionStatus === 'gameover') {
+      onGameEnd(hasArtifactExtracted(gameState.party, gameState.map.extractionZone), gameState.clock)
+    }
+  }, [gameState.sessionStatus]) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const findNearbyCarryable = (
     items: Item[],
@@ -493,6 +529,15 @@ export const DungeonGame: React.FC = () => {
       const nextGameTime = prev.gameTime + CYCLE_STEP
       const newCycleTime = (prev.cycleTime + CYCLE_STEP) % CYCLE_DURATION_SECONDS
 
+      const nextClock = tickClock(prev.clock, CYCLE_STEP)
+
+      // Shelter suppression: party stationary inside a '*' chunk → creatures lose far-radius player targeting.
+      const partyInShelter =
+        GAME_SETTINGS.npc.shelterFarDetectionSuppressed &&
+        !prev.isMoving &&
+        isPositionInShelter(prev.party.position, SHELTER_CHUNKS)
+
+
       const updatedTraps = prev.map.traps.map((trap) => {
         if (trap.state !== 'arming' || trap.armingStartedAt === null) {
           return trap
@@ -525,6 +570,20 @@ export const DungeonGame: React.FC = () => {
       }
 
       const updatedCreatures = prev.map.creatures.map((creature): Creature => {
+                // AI radius culling — skip simulation for creatures far from the party.
+                if (distanceBetween(creature.position, prev.party.position) > AI_RADIUS_PX) {
+                  return creature
+                }
+
+                // Shelter suppression — clear player target when party is hidden and creature only sees via far radius.
+                if (
+                  partyInShelter &&
+                  creature.aggressionTargetType === 'player' &&
+                  !isCreatureInAlertRadius(creature, prev.party.position)
+                ) {
+                  return clearAggressionTarget(creature)
+                }
+
         if (creature.condition === 'trapped') {
           if (creature.trappedUntil !== null && nextGameTime < creature.trappedUntil) {
             return {
@@ -827,7 +886,7 @@ export const DungeonGame: React.FC = () => {
         return {
           ...creature,
           condition: 'trapped' as const,
-          trappedUntil: nextGameTime + getTrapImmobilizeDurationSeconds(creature),
+          trappedUntil: nextGameTime + getTrapImmobilizeDuration(creature),
           state: 'idle' as const,
           waypoints: [],
           targetFoodId: null,
@@ -901,6 +960,13 @@ export const DungeonGame: React.FC = () => {
         selectedObject: syncSelectedObject(prev.selectedObject, updatedMap),
         gameTime: nextGameTime,
         cycleTime: newCycleTime,
+        clock: nextClock,
+        sessionStatus:
+          nextParty.health <= 0
+            ? ('gameover' as const)
+            : hasArtifactExtracted(nextParty, updatedMap.extractionZone)
+            ? ('gameover' as const)
+            : prev.sessionStatus,
       }
     })
   }, [])
@@ -1238,611 +1304,3 @@ export const DungeonGame: React.FC = () => {
   )
 }
 
-function isPortableTrap(trap: Trap): boolean {
-  return trap.state === 'portable'
-}
-
-function isPickupableTrap(trap: Trap): boolean {
-  return trap.state === 'portable' || trap.state === 'armed'
-}
-
-function isTrapSelectable(trap: Trap): boolean {
-  return trap.state === 'portable' || trap.state === 'arming' || trap.state === 'armed'
-}
-
-function isArtifactOnMap(artifact: Artifact): boolean {
-  return artifact.position.x >= 0 && artifact.position.y >= 0
-}
-
-function hideArtifact(artifact: Artifact): Artifact {
-  return {
-    ...artifact,
-    position: {
-      x: HIDDEN_ARTIFACT_POSITION.x,
-      y: HIDDEN_ARTIFACT_POSITION.y,
-    },
-  }
-}
-
-function isPointInsideExtractionZone(point: Vector2, extractionZone: ExtractionZone): boolean {
-  return (
-    point.x >= extractionZone.position.x - extractionZone.width / 2 &&
-    point.x <= extractionZone.position.x + extractionZone.width / 2 &&
-    point.y >= extractionZone.position.y - extractionZone.height / 2 &&
-    point.y <= extractionZone.position.y + extractionZone.height / 2
-  )
-}
-
-function hasArtifactExtracted(
-  party: GameState['party'],
-  extractionZone: ExtractionZone
-): boolean {
-  if (!party.carriedItem || party.carriedItem.type !== 'artifact') {
-    return false
-  }
-
-  return isPointInsideExtractionZone(party.position, extractionZone)
-}
-
-function isPartyDefeated(party: GameState['party']): boolean {
-  return party.health <= 0
-}
-
-function isPartyRecovering(party: GameState['party'], gameTime: number): boolean {
-  return party.recoveringUntil !== null && gameTime < party.recoveringUntil
-}
-
-function getPartySpeedMultiplier(health: number): number {
-  const clampedHealth = Math.max(0, Math.min(MAX_HEARTS, Math.floor(health)))
-  return SPEED_MULTIPLIER_BY_HEALTH[clampedHealth] ?? 1
-}
-
-function isCollisionDamageReady(lastDamageAt: number | null, gameTime: number): boolean {
-  return lastDamageAt === null || gameTime - lastDamageAt >= COLLISION_DAMAGE_COOLDOWN
-}
-
-function isCreatureDamagingOnCollision(creature: Creature, partyPosition: Vector2): boolean {
-  if (creature.state === 'sleeping' || creature.condition === 'trapped' || creature.isFriendly) {
-    return false
-  }
-
-  const activelyAggressiveToPlayer =
-    creature.condition === 'enraged' ||
-    (creature.aggressionTargetType === 'player' && creature.aggressionTargetId === 'player')
-
-  if (!activelyAggressiveToPlayer) {
-    return false
-  }
-
-  const collisionRadius = creature.width / 2 + 10
-  return distanceBetweenPositions(creature.position, partyPosition) <= collisionRadius
-}
-
-function getFeedingDurationSeconds(foodType: Food['foodType']): number {
-  return FOOD_FEEDING_DURATION_SECONDS[foodType]
-}
-
-function selectFoodTargetForCreature(creature: Creature, foods: Food[]): Food | null {
-  const visibleFoods = foods.filter(
-    (food) => distanceBetweenPositions(creature.position, food.position) <= creature.detectionRadius
-  )
-
-  if (visibleFoods.length === 0) {
-    return null
-  }
-
-  for (const priority of creature.dietPriorities) {
-    if (!priority.startsWith('food:')) {
-      continue
-    }
-
-    const preferredType = priority.slice('food:'.length) as Food['foodType']
-    const matchingFoods = visibleFoods.filter((food) => food.foodType === preferredType)
-    if (matchingFoods.length === 0) {
-      continue
-    }
-
-    return getNearestFood(creature.position, matchingFoods)
-  }
-
-  return getNearestFood(creature.position, visibleFoods)
-}
-
-function getNearestFood(origin: Vector2, foods: Food[]): Food | null {
-  let nearestFood: Food | null = null
-  let nearestDistance = Number.POSITIVE_INFINITY
-
-  for (const food of foods) {
-    const distance = distanceBetweenPositions(origin, food.position)
-    if (distance >= nearestDistance) {
-      continue
-    }
-
-    nearestFood = food
-    nearestDistance = distance
-  }
-
-  return nearestFood
-}
-
-function distanceBetweenPositions(a: Vector2, b: Vector2): number {
-  return Math.hypot(a.x - b.x, a.y - b.y)
-}
-
-function getTrapImmobilizeDurationSeconds(creature: Creature): number {
-  const size = Math.max(creature.width, creature.height)
-  const normalizedSize = Math.max(0, Math.min(1, (size - 12) / 10))
-  return TRAP_IMMOBILIZE_MIN_SECONDS + normalizedSize * (TRAP_IMMOBILIZE_MAX_SECONDS - TRAP_IMMOBILIZE_MIN_SECONDS)
-}
-
-function moveCreatureAlongWaypoints(
-  creature: Creature,
-  waypoints: Vector2[],
-  map: GameState['map'],
-  speedMultiplier: number = 1
-): Creature {
-  const movementSpeed = creature.speed * speedMultiplier
-  const movementBounds = createMovementBounds(map.width, map.height, NPC_BOUNDARY_PADDING)
-  const movement = stepAlongWaypoints({
-    position: creature.position,
-    direction: creature.direction,
-    waypoints,
-    speed: movementSpeed,
-    waypointReachDistance: movementSpeed * NPC_WAYPOINT_REACH_MULTIPLIER,
-    navigationCellSize: GRID_SIZE,
-    stepScales: CREATURE_STEP_SCALES,
-    clampBounds: movementBounds,
-    isWalkable: (position) => isPositionWalkable(position, map.objects),
-  })
-
-  if (movement.arrived) {
-    return {
-      ...creature,
-      position: movement.position,
-      state: 'idle',
-      waypoints: [],
-    }
-  }
-
-  if (!movement.moved) {
-    return {
-      ...creature,
-      position: movement.position,
-      state: 'idle',
-      waypoints: [],
-    }
-  }
-
-  return {
-    ...creature,
-    position: movement.position,
-    direction: movement.direction,
-    state: 'patrol',
-    waypoints: movement.waypoints,
-  }
-}
-
-function syncSelectedObject(selectedObject: GameObject | null, map: GameState['map']): GameObject | null {
-  if (!selectedObject) {
-    return null
-  }
-
-  if (selectedObject.type === 'creature') {
-    return map.creatures.find((creature) => creature.id === selectedObject.id) ?? null
-  }
-
-  if (selectedObject.type === 'item') {
-    return map.items.find((item) => item.id === selectedObject.id) ?? null
-  }
-
-  if (selectedObject.type === 'food') {
-    return map.food.find((food) => food.id === selectedObject.id) ?? null
-  }
-
-  if (selectedObject.type === 'trap') {
-    return map.traps.find((trap) => trap.id === selectedObject.id) ?? null
-  }
-
-  if (selectedObject.type === 'artifact') {
-    return map.artifact.id === selectedObject.id && isArtifactOnMap(map.artifact) ? map.artifact : null
-  }
-
-  return map.objects.find((obj) => obj.id === selectedObject.id) ?? null
-}
-
-function isCreatureInAlertRadius(creature: Creature, partyPosition: Vector2): boolean {
-  const distance = distanceBetweenPositions(creature.position, partyPosition)
-  return distance <= creature.alertRadius
-}
-
-function isCreatureInFarBehaviorRadius(creature: Creature, targetPosition: Vector2): boolean {
-  const distance = distanceBetweenPositions(creature.position, targetPosition)
-  return distance <= creature.farBehaviorRadius
-}
-
-function updateCreatureAlertState(creature: Creature, gameTime: number, partyPosition: Vector2): Creature {
-  // Friendly creatures ignore alerts
-  if (creature.isFriendly) {
-    return creature
-  }
-
-  const inAlertRadius = isCreatureInAlertRadius(creature, partyPosition)
-
-  if (inAlertRadius) {
-    // Set alert state for alert duration
-    return {
-      ...creature,
-      alertUntil: gameTime + ALERT_DURATION_SECONDS,
-    }
-  }
-
-  // Check if alert is still active
-  if (creature.alertUntil !== null && gameTime < creature.alertUntil) {
-    return creature // Keep alert
-  }
-
-  // Alert expired
-  return {
-    ...creature,
-    alertUntil: null,
-  }
-}
-
-type ReactionAction = 'attack' | 'avoid'
-
-type ReactionDecision = {
-  action: ReactionAction
-  targetType: 'player' | 'creature'
-  targetId: string
-  targetPosition: Vector2
-  distance: number
-}
-
-function clearExpiredAggressionState(creature: Creature, gameTime: number): Creature {
-  return {
-    ...creature,
-    aggressionBoostUntil:
-      creature.aggressionBoostUntil !== null && gameTime < creature.aggressionBoostUntil
-        ? creature.aggressionBoostUntil
-        : null,
-    aggressionBoostCooldownUntil:
-      creature.aggressionBoostCooldownUntil !== null && gameTime < creature.aggressionBoostCooldownUntil
-        ? creature.aggressionBoostCooldownUntil
-        : null,
-  }
-}
-
-function clearAggressionTarget(creature: Creature): Creature {
-  if (creature.aggressionTargetId === null && creature.aggressionTargetType === null && creature.aggressionBoostUntil === null) {
-    return creature
-  }
-
-  return {
-    ...creature,
-    aggressionTargetId: null,
-    aggressionTargetType: null,
-    aggressionBoostUntil: null,
-  }
-}
-
-function resolveCreatureReaction(
-  creature: Creature,
-  party: GameState['party'],
-  creatures: Creature[],
-  map: GameState['map'],
-  gameTime: number
-): Creature | null {
-  if (creature.isFriendly || creature.condition === 'trapped') {
-    return null
-  }
-
-  const reaction = selectReactionDecision(creature, party, creatures)
-  if (!reaction) {
-    return null
-  }
-
-  if (reaction.action === 'avoid') {
-    const fleePosition = findFleePosition(creature, reaction.targetPosition, map)
-    const fleePath = findPathWithObstacles(
-      creature.position,
-      fleePosition,
-      map.objects,
-      map.width,
-      map.height
-    )
-
-    const baseCreature = {
-      ...clearAggressionTarget(creature),
-      alertUntil: gameTime + ALERT_DURATION_SECONDS,
-      targetFoodId: null,
-      eatingUntil: null,
-      carriedFood: null,
-      waypoints: fleePath,
-    }
-
-    if (fleePath.length === 0) {
-      return {
-        ...baseCreature,
-        state: 'idle',
-        waypoints: [],
-      }
-    }
-
-    return moveCreatureAlongWaypoints(baseCreature, fleePath, map)
-  }
-
-  const chasePath = findPathWithObstacles(
-    creature.position,
-    reaction.targetPosition,
-    map.objects,
-    map.width,
-    map.height
-  )
-
-  const attackCreature = applyAggressionBurst(creature, reaction, gameTime)
-  const speedMultiplier = isAggressionBoostActive(attackCreature, gameTime)
-    ? AGGRESSION_BOOST_MULTIPLIER
-    : 1
-
-  const chasingCreature = {
-    ...attackCreature,
-    alertUntil: gameTime + ALERT_DURATION_SECONDS,
-    targetFoodId: null,
-    eatingUntil: null,
-    carriedFood: null,
-    waypoints: chasePath,
-  }
-
-  if (chasePath.length === 0) {
-    return moveCreatureDirectly(chasingCreature, reaction.targetPosition, map, speedMultiplier)
-  }
-
-  const movedByPath = moveCreatureAlongWaypoints(chasingCreature, chasePath, map, speedMultiplier)
-  if (
-    distanceBetweenPositions(movedByPath.position, creature.position) <= 0.001 &&
-    distanceBetweenPositions(reaction.targetPosition, creature.position) > creature.width / 2
-  ) {
-    return moveCreatureDirectly(chasingCreature, reaction.targetPosition, map, speedMultiplier)
-  }
-
-  return movedByPath
-}
-
-function selectReactionDecision(
-  creature: Creature,
-  party: GameState['party'],
-  creatures: Creature[]
-): ReactionDecision | null {
-  const decisions: ReactionDecision[] = []
-
-  if (party.health > 0) {
-    const distanceToPlayer = distanceBetweenPositions(creature.position, party.position)
-    const playerRelation = creature.isFriendly ? 'friendly' : creature.relation
-
-    if (shouldAttackByRelation(playerRelation, distanceToPlayer, creature)) {
-      decisions.push({
-        action: 'attack',
-        targetType: 'player',
-        targetId: 'player',
-        targetPosition: party.position,
-        distance: distanceToPlayer,
-      })
-    } else if (shouldAvoidByRelation(playerRelation, distanceToPlayer, creature)) {
-      decisions.push({
-        action: 'avoid',
-        targetType: 'player',
-        targetId: 'player',
-        targetPosition: party.position,
-        distance: distanceToPlayer,
-      })
-    }
-  }
-
-  for (const other of creatures) {
-    if (other.id === creature.id || other.condition === 'trapped') {
-      continue
-    }
-
-    const relation = getSpeciesRelation(creature.species, other.species)
-    const distance = distanceBetweenPositions(creature.position, other.position)
-
-    if (shouldAttackByRelation(relation, distance, creature)) {
-      decisions.push({
-        action: 'attack',
-        targetType: 'creature',
-        targetId: other.id,
-        targetPosition: other.position,
-        distance,
-      })
-      continue
-    }
-
-    if (shouldAvoidByRelation(relation, distance, creature)) {
-      decisions.push({
-        action: 'avoid',
-        targetType: 'creature',
-        targetId: other.id,
-        targetPosition: other.position,
-        distance,
-      })
-    }
-  }
-
-  if (decisions.length === 0) {
-    return null
-  }
-
-  // Sort all candidates by priority (then distance as tiebreaker).
-  decisions.sort((a, b) => {
-    const priorityA = getReactionPriority(creature, a)
-    const priorityB = getReactionPriority(creature, b)
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB
-    }
-    return a.distance - b.distance
-  })
-
-  const best = decisions[0]
-
-  // Keep the locked aggression target unless a strictly higher-priority target appeared.
-  // "Higher priority" means a lower getReactionPriority score (different priority class, not just closer).
-  if (creature.aggressionTargetId !== null && creature.aggressionTargetType !== null) {
-    const locked = decisions.find(
-      (d) => d.targetId === creature.aggressionTargetId && d.targetType === creature.aggressionTargetType
-    )
-    if (locked) {
-      const lockedPriority = getReactionPriority(creature, locked)
-      const bestPriority = getReactionPriority(creature, best)
-      if (bestPriority < lockedPriority) {
-        // A strictly higher-priority threat appeared — switch and re-lock onto it.
-        return best
-      }
-      // Target still valid and no superior threat; keep the lock.
-      return locked
-    }
-  }
-
-  return best
-}
-
-function getReactionPriority(creature: Creature, decision: ReactionDecision): number {
-  if (decision.action === 'avoid') {
-    return -2
-  }
-
-  // Species that are aggressive to the player should prioritize the player over side targets.
-  if (decision.targetType === 'player' && creature.relation === 'aggressive') {
-    return -1
-  }
-
-  const isNear = decision.distance <= creature.alertRadius
-  return isNear ? 0 : 1
-}
-
-function getEffectiveAggressionModel(aggression: Creature['aggression']): 'proximity' | 'vision' {
-  return aggression === 'proximity' ? 'proximity' : 'vision'
-}
-
-function getAggressiveReactionRadius(creature: Creature): number {
-  return getEffectiveAggressionModel(creature.aggression) === 'vision'
-    ? creature.farBehaviorRadius
-    : creature.alertRadius
-}
-
-function shouldAttackByRelation(relation: CreatureRelation, distance: number, creature: Creature): boolean {
-  if (relation === 'aggressive') {
-    return distance <= getAggressiveReactionRadius(creature)
-  }
-
-  if (relation === 'neutral') {
-    return distance <= creature.alertRadius
-  }
-
-  return false
-}
-
-function shouldAvoidByRelation(relation: CreatureRelation, distance: number, creature: Creature): boolean {
-  return relation === 'avoid' && distance <= creature.farBehaviorRadius
-}
-
-function getSpeciesRelation(observerSpecies: Creature['species'], targetSpecies: Creature['species']): CreatureRelation {
-  return SPECIES_RELATION_MATRIX[observerSpecies]?.[targetSpecies] ?? 'neutral'
-}
-
-function applyAggressionBurst(creature: Creature, reaction: ReactionDecision, gameTime: number): Creature {
-  const boostActive = isAggressionBoostActive(creature, gameTime)
-  const cooldownActive =
-    creature.aggressionBoostCooldownUntil !== null && gameTime < creature.aggressionBoostCooldownUntil
-
-  if (boostActive || cooldownActive) {
-    return {
-      ...creature,
-      aggressionTargetId: reaction.targetId,
-      aggressionTargetType: reaction.targetType,
-    }
-  }
-
-  const boostUntil = gameTime + AGGRESSION_BOOST_DURATION_SECONDS
-  return {
-    ...creature,
-    aggressionTargetId: reaction.targetId,
-    aggressionTargetType: reaction.targetType,
-    aggressionBoostUntil: boostUntil,
-    aggressionBoostCooldownUntil: boostUntil + AGGRESSION_BOOST_COOLDOWN_SECONDS,
-  }
-}
-
-function isAggressionBoostActive(creature: Creature, gameTime: number): boolean {
-  return creature.aggressionBoostUntil !== null && gameTime < creature.aggressionBoostUntil
-}
-
-function findFleePosition(creature: Creature, threatPosition: Vector2, map: GameState['map']): Vector2 {
-  const baseDirection = Math.atan2(
-    creature.position.y - threatPosition.y,
-    creature.position.x - threatPosition.x
-  )
-  const stepDistance = Math.max(creature.alertRadius * 1.5, creature.farBehaviorRadius * 0.7)
-  const tryAngles = [
-    baseDirection,
-    baseDirection + Math.PI / 6,
-    baseDirection - Math.PI / 6,
-    baseDirection + Math.PI / 3,
-    baseDirection - Math.PI / 3,
-    baseDirection + Math.PI / 2,
-    baseDirection - Math.PI / 2,
-  ]
-
-  for (const angle of tryAngles) {
-    const candidate = {
-      x: creature.position.x + Math.cos(angle) * stepDistance,
-      y: creature.position.y + Math.sin(angle) * stepDistance,
-    }
-
-    const clamped = {
-      x: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.width - NPC_BOUNDARY_PADDING, candidate.x)),
-      y: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.height - NPC_BOUNDARY_PADDING, candidate.y)),
-    }
-
-    if (isPositionWalkable(clamped, map.objects)) {
-      return clamped
-    }
-  }
-
-  return creature.position
-}
-
-function moveCreatureDirectly(
-  creature: Creature,
-  targetPosition: Vector2,
-  map: GameState['map'],
-  speedMultiplier: number = 1
-): Creature {
-  const movementBounds = createMovementBounds(map.width, map.height, NPC_BOUNDARY_PADDING)
-  const movement = stepTowardsTarget({
-    position: creature.position,
-    direction: creature.direction,
-    targetPosition,
-    speed: creature.speed * speedMultiplier,
-    stepScales: CREATURE_STEP_SCALES,
-    clampBounds: movementBounds,
-    isWalkable: (position) => isPositionWalkable(position, map.objects),
-  })
-
-  if (!movement.moved) {
-    // Keep facing the target even if no step is currently available.
-    return {
-      ...creature,
-      direction: movement.direction,
-      state: 'patrol',
-      waypoints: [],
-    }
-  }
-
-  return {
-    ...creature,
-    position: movement.position,
-    direction: movement.direction,
-    state: 'patrol',
-    waypoints: [],
-  }
-}

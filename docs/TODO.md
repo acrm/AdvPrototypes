@@ -7,6 +7,15 @@
 - [x] Dungeon map structure (basic multi-room layout)
 - [x] Party character & representation
 - [ ] Camera/viewport system
+- [x] Difficulty selection screen (Easy / Normal / Hard) shown before each run
+- [x] Game-over / victory screen with difficulty label, elapsed in-game time, and Retry button
+- [x] Accelerated in-game clock (6 in-game minutes per real second), Day D HH:MM format
+- [x] Creature speed and vision scaled by difficulty preset (×0.7/1.0/1.3 speed, ×0.75/1.0/1.25 vision)
+- [x] Shelter zones: all `*` chunks suppress creature aggression while party is stationary and inside
+- [x] Artifact spawn constrained to ≥10 chunks from player start (Chebyshev distance)
+- [x] AI simulation radius: only creatures within 5 chunks of party are processed each tick
+- [x] Scrollable details section in InfoPanel (title, actions, and debug controls are fixed)
+- [x] Three-layer code architecture: pure game logic (`src/game/`), app logic, visualisation
 - [x] Mouse click input system (movement, object interaction)
 
 ### Chunk-Based Dungeon Generation
@@ -142,9 +151,10 @@
   - [ ] Creatures resume normal behavior, search, or leave after timeout if player hidden
   - [ ] Benefits: break aggro chain, reset wait timers, observe creatures in safety
 - [ ] **Party Clear Identification:** Distinct party representation vs creatures
-  - [ ] Party rendered as a larger, unique diamond or shield symbol (not creature triangle)
-  - [ ] Different base color (e.g., gold, silver, or bright accent) to stand out
-  - [ ] Quick recognition on crowded maps
+- [x] **Party Member Rendering:** Per-member markers replacing single party token
+  - [x] Active members rendered as white directional triangles
+  - [x] Downed members rendered as black circles with white stroke
+  - [x] Members spaced perpendicular to direction of travel
 - [ ] **Environmental Interaction Patterns:**
   - [ ] Creature-to-food spatial mechanics (throw at creature to redirect)
   - [ ] Creature-vs-trap pre-planning (visible trigger zones enable strategy)

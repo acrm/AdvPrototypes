@@ -27,7 +27,9 @@
 
 .panel-content {
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 1rem;
   background-image: repeating-linear-gradient(
     to bottom,
@@ -39,6 +41,13 @@
 }
 
 .info-content {
+  .panel-content-details {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .info-content {
   font-size: 0.9rem;
   line-height: 1.65;
 }

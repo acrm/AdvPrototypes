@@ -48,6 +48,8 @@
 - The layout contains multiple `*` candidate chunks; one random candidate becomes the player's start point and also the extraction point for that run.
 - The layout contains multiple `A` candidate chunks; one random candidate becomes the artifact spawn zone for that run.
 - Non-selected `*` and `A` candidate markers are inert for that run and do not produce additional starts or artifacts.
+- The artifact spawn point is selected from `A` candidates that are **at least 10 chunks** (Chebyshev distance) from the chosen player start chunk; if no candidate meets the threshold, the farthest available candidate is used.
+- Every `*` chunk on the map acts as a **shelter region** — when the party is stationary inside any `*` chunk, aggressive creatures outside their alert radius suppress their aggression (they do not notice the resting party).
 
 ### Chunk-Based Dungeon Generation
 
@@ -608,6 +610,69 @@ Once party *understands* a creature's behavior, options emerge:
 - Captured by creatures: Overwhelmed in combat
 - Artifact destroyed: Certain encounters or hazards
 - Soft lock: All possible paths sealed, creature territories completely blocking passage
+
+---
+
+## Prototype Scope (MVP)
+## Difficulty System
+
+At session start the player selects one of three difficulty presets. The preset scales creature behaviour globally for that run:
+
+| Preset | Creature speed multiplier | Creature vision multiplier |
+|--------|--------------------------|---------------------------|
+| Easy   | × 0.7                    | × 0.75                    |
+| Normal | × 1.0                    | × 1.0                     |
+| Hard   | × 1.3                    | × 1.25                    |
+
+The selected difficulty is stored in the session state and displayed on the game-over screen alongside total elapsed in-game time.
+
+---
+
+## In-Game Clock
+
+The prototype runs an **accelerated in-game day/time** that advances independently of creature cycle time:
+- Real-time rate: **6 in-game minutes per real second** (configurable via `GAME_SETTINGS.time.minutesPerRealSecond`).
+- Clock format displayed as `Day D  HH:MM`.
+- The clock starts at Day 0 00:00 and accumulates across the session.
+- Clock is shown on the game-over / victory screen to record total mission time.
+
+---
+
+## AI Simulation Radius
+
+To keep simulation efficient, creature AI is only fully evaluated for creatures within **5 chunks** (≈ `5 × LAYOUT_REGION_SIZE` pixels) of the party. Creatures beyond this radius remain frozen in place until the party approaches. This value is configurable via `GAME_SETTINGS.npc.aiProcessingRadiusChunks`.
+
+---
+
+## Party Member Representation
+
+The party is rendered as a group of **individual member markers** rather than a single token:
+- **Active members** → white triangle (pointing in the party's direction of travel).
+- **Downed members** → black filled circle with white outline.
+- Members are spaced perpendicular to the direction of travel by `PARTY_MEMBER_SPACING` pixels.
+
+Member status (`active` / `downed`) maps to party health: when health decreases, the rightmost member changes from active to downed.
+
+---
+
+## Session Screens
+
+The session follows a three-state flow managed by the top-level `App` component:
+1. **Difficulty Selection** — player picks Easy / Normal / Hard and the session starts.
+2. **Running** — the `DungeonGame` component handles all gameplay.
+3. **Game Over / Victory** — shows outcome (mission complete / party defeated), the difficulty chosen, the elapsed in-game time, and a `[RETRY]` button that returns to the difficulty menu.
+
+---
+
+## Code Architecture
+
+The codebase is split into three layers to keep concerns separate:
+
+| Layer | Path | Responsibility |
+|-------|------|---------------|
+| Pure game logic | `src/game/` | Stateless functions and constants only (zero React/Canvas imports). Includes `GameQueries.ts`, `CreatureAI.ts`, `TimeSystem.ts`, `ShelterSystem.ts`. |
+| Application logic | `src/components/DungeonGame.tsx`, `src/App.tsx` | React state, event handlers, timers; orchestrates game modules. |
+| Visualisation | `src/components/DungeonCanvas.tsx`, `src/components/InfoPanel.tsx` | Canvas draw calls, CSS, rendering constants from `src/config/renderSettings.ts`. |
 
 ---
 

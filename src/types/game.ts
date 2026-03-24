@@ -1,5 +1,19 @@
 // Game types and interfaces
 
+export type Difficulty = 'easy' | 'normal' | 'hard'
+
+export type SessionStatus = 'menu' | 'running' | 'gameover'
+
+/** In-game accelerated clock. Displayed as Day D HH:MM. */
+export interface InGameClock {
+  day: number
+  hour: number
+  minute: number
+}
+
+/** Render status of a single party member. */
+export type PartyMemberStatus = 'active' | 'downed'
+
 export interface Vector2 {
   x: number
   y: number
@@ -135,6 +149,7 @@ export interface ExtractionZone {
 export interface Party {
   position: Vector2
   members: string[]
+  memberStatuses: PartyMemberStatus[]
   path: Vector2[]
   targetPosition: Vector2 | null
   observedCreatures: Map<string, number> // id -> times observed
@@ -168,4 +183,7 @@ export interface GameState {
   gameTime: number // in seconds (0-240 represents full cycle)
   cycleTime: number // 0-240 current time in cycle
   isMoving: boolean
+  clock: InGameClock
+  difficulty: Difficulty
+  sessionStatus: SessionStatus
 }

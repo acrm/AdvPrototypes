@@ -213,7 +213,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
         <h2>INFO</h2>
       </div>
       <div className="panel-content">
-        <InfoContent text={content} />
+        <div className="panel-content-details">
+          <InfoContent text={content} />
+        </div>
         <div className="panel-actions">
           <button
             type="button"

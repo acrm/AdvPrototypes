@@ -12,6 +12,7 @@ import {
   Trap,
   Vector2,
 } from '../types/game'
+import { ShelterBound } from '../game/ShelterSystem'
 import { GAME_SETTINGS } from '../config/gameSettings'
 import { GRID_SIZE, isPositionWalkable, LAYOUT_REGION_SIZE } from './Pathfinding'
 import { DUNGEON_LAYOUT, GRID_COLS, GRID_ROWS } from '../data/dungeonLayout'
@@ -1026,7 +1027,21 @@ export function initializeMap(): { map: GameMap; partyStartPosition: Vector2 } {
       row: GAME_SETTINGS.world.partyStartLayoutCell.y,
       col: GAME_SETTINGS.world.partyStartLayoutCell.x,
     }
-  const selectedArtifactCell = getRandomLayoutCell(collectLayoutCells(lines, 'A'))
+  const allArtifactCells = collectLayoutCells(lines, 'A')
+  const minDist = GAME_SETTINGS.world.artifactMinDistanceChunks
+  const chunkDist = (c: LayoutCell) =>
+    Math.max(
+      Math.abs(c.row - selectedPartyStartCell.row),
+      Math.abs(c.col - selectedPartyStartCell.col)
+    )
+  const validArtifactCells = allArtifactCells.filter((c) => chunkDist(c) >= minDist)
+  const artifactPool =
+    validArtifactCells.length > 0
+      ? validArtifactCells
+      : allArtifactCells.length > 0
+      ? [allArtifactCells.reduce((best, c) => (chunkDist(c) > chunkDist(best) ? c : best))]
+      : []
+  const selectedArtifactCell = getRandomLayoutCell(artifactPool)
 
   const map: GameMap = {
     width: GRID_COLS * LAYOUT_REGION_SIZE,
@@ -1300,3 +1315,16 @@ export function refreshSpawnZones(
 }
 
 export { isSleeping }
+
+/**
+ * Returns world-space bounding boxes for all '*' shelter layout cells.
+ * Used by ShelterSystem to check if the party is inside a shelter chunk.
+ */
+export function getShelterChunks(): ShelterBound[] {
+  const lines = DUNGEON_LAYOUT.split('\n').filter((l) => l.length > 0)
+  return collectLayoutCells(lines, '*').map((c) => ({
+    x: c.col * LAYOUT_REGION_SIZE,
+    y: c.row * LAYOUT_REGION_SIZE,
+    size: LAYOUT_REGION_SIZE,
+  }))
+}

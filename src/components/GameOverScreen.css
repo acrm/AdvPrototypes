@@ -1,0 +1,64 @@
+.game-over-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  height: 100vh;
+  background: linear-gradient(180deg, #050a07 0%, #070c09 100%);
+  color: #9fc79f;
+  font-family: 'IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+}
+
+.game-over-screen__outcome {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-shadow: 0 0 20px currentColor;
+}
+
+.game-over-screen__outcome--victory {
+  color: #90e890;
+}
+
+.game-over-screen__outcome--defeat {
+  color: #e05050;
+}
+
+.game-over-screen__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.game-over-screen__stat {
+  display: flex;
+  gap: 1rem;
+}
+
+.game-over-screen__stat-label {
+  color: #d8cb8f;
+  min-width: 160px;
+}
+
+.game-over-screen__stat-value {
+  color: #bfdcbf;
+}
+
+.game-over-screen__retry {
+  background: transparent;
+  border: 1px solid #5a855a;
+  color: #9fc79f;
+  font-family: inherit;
+  font-size: 1rem;
+  letter-spacing: 2px;
+  padding: 0.7rem 2rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.game-over-screen__retry:hover {
+  border-color: #7aab7a;
+  background: rgba(100, 160, 100, 0.07);
+}

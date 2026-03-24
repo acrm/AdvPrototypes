@@ -1,6 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { Creature, GameState, Vector2 } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
+import {
+  PARTY_MEMBER_SIZE,
+  PARTY_MEMBER_SPACING,
+  PARTY_ACTIVE_COLOR,
+  PARTY_DOWNED_COLOR,
+  PARTY_DOWNED_STROKE,
+  DOWNED_MEMBER_RADIUS,
+} from '../config/renderSettings'
 
 const VIEWPORT_WIDTH = GAME_SETTINGS.world.viewportWidth
 const VIEWPORT_HEIGHT = GAME_SETTINGS.world.viewportHeight
@@ -169,7 +177,8 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     // Draw party (white triangle)
-    drawTriangle(ctx, gameState.party.position, '#fff', 20, gameState.party.direction)
+    // Draw party members individually
+    drawPartyMembers(ctx, gameState)
 
     // Draw carried item near party direction
     if (gameState.party.carriedItem) {
@@ -528,6 +537,33 @@ function getCameraOffset(gameState: GameState, viewportWidth: number, viewportHe
   return {
     x: Math.max(0, Math.min(gameState.party.position.x - viewportWidth / 2, maxX)),
     y: Math.max(0, Math.min(gameState.party.position.y - viewportHeight / 2, maxY)),
+  }
+}
+
+function drawPartyMembers(ctx: CanvasRenderingContext2D, gameState: GameState) {
+  const { position, direction, memberStatuses } = gameState.party
+  const n = memberStatuses.length
+  const perp = direction + Math.PI / 2
+
+  for (let i = 0; i < n; i++) {
+    const offset = (i - (n - 1) / 2) * PARTY_MEMBER_SPACING
+    const memberPos: Vector2 = {
+      x: position.x + Math.cos(perp) * offset,
+      y: position.y + Math.sin(perp) * offset,
+    }
+    if (memberStatuses[i] === 'active') {
+      drawTriangle(ctx, memberPos, PARTY_ACTIVE_COLOR, PARTY_MEMBER_SIZE, direction)
+    } else {
+      ctx.save()
+      ctx.fillStyle = PARTY_DOWNED_COLOR
+      ctx.strokeStyle = PARTY_DOWNED_STROKE
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(memberPos.x, memberPos.y, DOWNED_MEMBER_RADIUS, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+      ctx.restore()
+    }
   }
 }
 

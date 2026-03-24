@@ -47,3 +47,4 @@
 - 2026w12-0.22 — Define documentation agent scope and constraints
 - 2026w12-0.23 — Document Dev agent functionality and constraints
 - 2026w13-0.1 — Formalize interaction mechanics: food throw, trap coverage, refuges, party clarity
+- 2026w13-1.1 — Layered architecture + difficulty/shelter/time/party-member rendering overhaul

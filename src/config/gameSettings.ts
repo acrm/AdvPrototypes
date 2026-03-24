@@ -31,6 +31,8 @@ export const GAME_SETTINGS = {
       x: -9999,
       y: -9999,
     },
+    /** Artifact spawn must be at least this many layout-grid chunks away from player start. */
+    artifactMinDistanceChunks: 10,
   },
   cycle: {
     durationSeconds: 240,
@@ -48,6 +50,10 @@ export const GAME_SETTINGS = {
   npc: {
     idleTurnIntervalRange: [1, 2] as RangeTuple,
     patrolStartChancePerTick: 0.01,
+    /** Radius in layout chunks around the party within which creature AI ticks run. */
+    aiProcessingRadiusChunks: 5,
+    /** When true, far detection is suppressed for a stationary party inside a shelter chunk. */
+    shelterFarDetectionSuppressed: true,
     waypointReachDistanceMultiplier: 2,
     mapBoundaryPadding: 30,
     respawnCooldownSeconds: {
@@ -151,6 +157,31 @@ export const GAME_SETTINGS = {
         endRange: [40, 60] as RangeTuple,
         variationRange: [5, 15] as RangeTuple,
       },
+    },
+  },
+  time: {
+    /** In-game minutes that pass per real second. */
+    minutesPerRealSecond: 6,
+    /** Real seconds required for one in-game hour (= 60 / minutesPerRealSecond). */
+    hoursPerRealSeconds: 10,
+    startDay: 0,
+    startHour: 0,
+    startMinute: 0,
+  },
+  difficulty: {
+    easy: {
+      /** Multiplier applied to every creature's base speed. */
+      creatureSpeedMultiplier: 0.7,
+      /** Multiplier applied to every creature's detection radius. */
+      creatureVisionMultiplier: 0.75,
+    },
+    normal: {
+      creatureSpeedMultiplier: 1.0,
+      creatureVisionMultiplier: 1.0,
+    },
+    hard: {
+      creatureSpeedMultiplier: 1.3,
+      creatureVisionMultiplier: 1.25,
     },
   },
   spawn: {

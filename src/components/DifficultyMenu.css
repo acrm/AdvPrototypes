@@ -1,0 +1,66 @@
+.difficulty-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(180deg, #050a07 0%, #070c09 100%);
+  color: #9fc79f;
+  font-family: 'IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+}
+
+.difficulty-menu__title {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: #bfdcbf;
+  text-shadow: 0 0 18px rgba(140, 200, 140, 0.35);
+  margin-bottom: 0.4rem;
+}
+
+.difficulty-menu__subtitle {
+  font-size: 0.85rem;
+  letter-spacing: 3px;
+  color: #5a855a;
+  margin-bottom: 2.5rem;
+}
+
+.difficulty-menu__options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 400px;
+}
+
+.difficulty-menu__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  background: transparent;
+  border: 1px solid #2e4132;
+  color: #9fc79f;
+  font-family: inherit;
+  padding: 0.9rem 1.2rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: left;
+}
+
+.difficulty-menu__option:hover {
+  border-color: #7aab7a;
+  background: rgba(100, 160, 100, 0.07);
+}
+
+.difficulty-menu__option-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #d8e8d8;
+  letter-spacing: 2px;
+}
+
+.difficulty-menu__option-desc {
+  font-size: 0.78rem;
+  color: #6a9a6a;
+  line-height: 1.5;
+}
