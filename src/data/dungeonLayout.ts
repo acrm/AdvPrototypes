@@ -26,21 +26,20 @@
 // * - Party start and extraction candidate region (three candidates in the layout, one chosen per run)
 // A - Artifact spawn candidate region (three candidates in the layout, one chosen per run)
 // . - Item spawn region
-// H - Shelter/refuge zone (safe from creature far-detection)
 //   - Empty walkable chunk category
 
 export const DUNGEON_LAYOUT = `########################
-#*..rFN H# *Is  s R . A#
+#*..rFN  # *Is  s R . A#
 #r  #### #  ##s ####*# #
-# k #* #m#A ##o r H #k#s#
+# k #* #m#A ##o r  #k#s#
 ###s#mk# ## #m#### # # #
-# w # A M os  m # H #r#w#
+# w # A M os  m #  #r#w#
 # ###m######### #  # # #
-#k o#r H F r m # # I o#w#
+#k o#r  F r m # # I o#w#
 # #w#s####### # * ####w#
 #o#A* #m N  # Ag m G m #
 # ##### ### ##########r#
-#bm Bo# # #* A r W w H*r#
+#bm Bo# # #* A r W w *r#
 ##### # # # ##########o#
 # * #mr Y m # w m  O*r #
 # #s####### #kI ###### #
