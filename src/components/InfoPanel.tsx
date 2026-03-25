@@ -152,7 +152,6 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     const sleepEnd = creature.sleepSchedule.sleepEnd
     desc += `[SLEEP] ${cycleSecToHHMM(sleepStart)}–${cycleSecToHHMM(sleepEnd)} ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
     desc += `[ALARM ZONE] ${formatBlocks(creature.alertRadius)} bl\n`
-    desc += `[SIGHT RANGE] ${formatBlocks(creature.detectionRadius)} bl\n`
     desc += `[AWARENESS ZONE] ${formatBlocks(creature.farBehaviorRadius)} bl\n\n`
     const fleeTargets = getFleeTargetsList(creature)
     if (fleeTargets) {
@@ -220,11 +219,13 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
       </div>
       <div className="panel-content">
         <div className="entity-name-block">{entityDisplayName}</div>
-        <div className="fixed-time-block">
-          <span className="time-day">Day {clockDay}</span>
-          <span className="time-clock">{clockLabel}</span>
-          <span className="time-phase">{getTimeOfDay(cycleTime)}</span>
-        </div>
+        {!selectedObject && (
+          <div className="fixed-time-block">
+            <span className="time-day">Day {clockDay}</span>
+            <span className="time-clock">{clockLabel}</span>
+            <span className="time-phase">{getTimeOfDay(cycleTime)}</span>
+          </div>
+        )}
         <div className="panel-content-details">
           <InfoContent text={content} />
         </div>

@@ -23,10 +23,14 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
   const previousGameStateRef = useRef<GameState>(gameState)
   const latestGameStateRef = useRef<GameState>(gameState)
   const tickStartMsRef = useRef<number>(performance.now())
+  const previousIsMovingRef = useRef<boolean>(gameState.isMoving)
+  const latestIsMovingRef = useRef<boolean>(gameState.isMoving)
 
   useEffect(() => {
     previousGameStateRef.current = latestGameStateRef.current
     latestGameStateRef.current = gameState
+    previousIsMovingRef.current = latestIsMovingRef.current
+    latestIsMovingRef.current = gameState.isMoving
     tickStartMsRef.current = performance.now()
   }, [gameState])
 
@@ -226,7 +230,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
         ...nextState.party,
         position: partyPosition,
         direction: partyDirection,
-      }, nextState.isMoving)
+      }, previousIsMovingRef.current, latestIsMovingRef.current, alpha)
 
     // Draw carried item near party direction
       if (nextState.party.carriedItem) {
@@ -482,25 +486,27 @@ function drawTrap(ctx: CanvasRenderingContext2D, trap: GameState['map']['traps']
     return
   }
 
+  // For arming/armed: draw filled circle covering trigger radius
   ctx.save()
-  ctx.beginPath()
-  ctx.moveTo(trap.position.x, trap.position.y - radius)
-  ctx.lineTo(trap.position.x + radius, trap.position.y)
-  ctx.lineTo(trap.position.x, trap.position.y + radius)
-  ctx.lineTo(trap.position.x - radius, trap.position.y)
-  ctx.closePath()
-
+  
   if (trap.state === 'arming') {
+    ctx.fillStyle = 'rgba(255, 235, 140, 0.15)'
     ctx.strokeStyle = 'rgba(255, 235, 140, 0.9)'
-    ctx.setLineDash([3, 3])
     ctx.lineWidth = 2
+    ctx.setLineDash([3, 3])
   } else {
+    // armed
+    ctx.fillStyle = 'rgba(255, 248, 220, 0.2)'
     ctx.strokeStyle = 'rgba(255, 248, 220, 0.95)'
     ctx.lineWidth = 2.5
   }
-
+  
+  ctx.beginPath()
+  ctx.arc(trap.position.x, trap.position.y, trap.triggerRadius, 0, Math.PI * 2)
+  ctx.fill()
   ctx.stroke()
   ctx.setLineDash([])
+  
   ctx.restore()
 }
 
@@ -629,43 +635,74 @@ function getCameraOffset(
   }
 }
 
-function drawPartyMembers(ctx: CanvasRenderingContext2D, party: GameState['party'], isMoving: boolean) {
+function drawPartyMembers(
+  ctx: CanvasRenderingContext2D,
+  party: GameState['party'],
+  prevIsMoving: boolean,
+  currIsMoving: boolean,
+  alpha: number
+) {
   const { position, direction, memberStatuses } = party
   const n = memberStatuses.length
   const fwd = { x: Math.cos(direction), y: Math.sin(direction) }
   const perp = { x: -Math.sin(direction), y: Math.cos(direction) }
 
-  let offsets: Array<{ x: number; y: number }>
+  // Compute offsets for previous and current states, then interpolate
+  const computeOffsets = (isMoving: boolean, t: number): Array<{ x: number; y: number }> => {
+    if (isMoving) {
+      // Column formation: leader → middle → rear, small lateral wobble
+      const SPACING = 16
+      const WOBBLE_AMP = 3
+      const WOBBLE_FREQ = Math.PI * 3
+      const w1 = WOBBLE_AMP * Math.sin(t * WOBBLE_FREQ)
+      const w2 = WOBBLE_AMP * Math.sin(t * WOBBLE_FREQ + Math.PI)
+      return [
+        { x: 0, y: 0 },
+        { x: -fwd.x * SPACING + perp.x * w1, y: -fwd.y * SPACING + perp.y * w1 },
+        { x: -fwd.x * SPACING * 2 + perp.x * w2, y: -fwd.y * SPACING * 2 + perp.y * w2 },
+      ]
+    } else {
+      // Wedge formation: leader at tip, two flankers behind
+      const LEADER = 10
+      const BACK = 8
+      const SIDE = 14
+      // Add subtle breathing animation even while standing
+      const BREATHE_AMP = 0.8
+      const BREATHE_FREQ = Math.PI * 2 // ~1 Hz
+      const breathe = BREATHE_AMP * Math.sin(t * BREATHE_FREQ)
+      return [
+        { x: fwd.x * (LEADER + breathe), y: fwd.y * (LEADER + breathe) },
+        {
+          x: -fwd.x * (BACK + breathe) - perp.x * SIDE,
+          y: -fwd.y * (BACK + breathe) - perp.y * SIDE,
+        },
+        {
+          x: -fwd.x * (BACK + breathe) + perp.x * SIDE,
+          y: -fwd.y * (BACK + breathe) + perp.y * SIDE,
+        },
+      ]
+    }
+  }
 
-  if (isMoving) {
-    // Column formation: leader → middle → rear, small lateral wobble
-    const SPACING = 16
-    const WOBBLE_AMP = 3
-    const t = performance.now() / 1000
-    const WOBBLE_FREQ = Math.PI * 3 // ~1.5 Hz
-    const w1 = WOBBLE_AMP * Math.sin(t * WOBBLE_FREQ)
-    const w2 = WOBBLE_AMP * Math.sin(t * WOBBLE_FREQ + Math.PI)
-    offsets = [
-      { x: 0, y: 0 },
-      { x: -fwd.x * SPACING + perp.x * w1, y: -fwd.y * SPACING + perp.y * w1 },
-      { x: -fwd.x * SPACING * 2 + perp.x * w2, y: -fwd.y * SPACING * 2 + perp.y * w2 },
-    ]
-  } else {
-    // Wedge formation: leader at tip, two flankers behind
-    const LEADER = 10
-    const BACK = 8
-    const SIDE = 14
-    offsets = [
-      { x: fwd.x * LEADER, y: fwd.y * LEADER },
-      { x: -fwd.x * BACK - perp.x * SIDE, y: -fwd.y * BACK - perp.y * SIDE },
-      { x: -fwd.x * BACK + perp.x * SIDE, y: -fwd.y * BACK + perp.y * SIDE },
-    ]
+  const t = performance.now() / 1000
+  const prevOffsets = computeOffsets(prevIsMoving, t)
+  const currOffsets = computeOffsets(currIsMoving, t)
+
+  // Interpolate offsets between the two states
+  const interpolatedOffsets: Array<{ x: number; y: number }> = []
+  for (let i = 0; i < n; i++) {
+    const prev = prevOffsets[i] ?? { x: 0, y: 0 }
+    const curr = currOffsets[i] ?? { x: 0, y: 0 }
+    interpolatedOffsets.push({
+      x: prev.x + (curr.x - prev.x) * alpha,
+      y: prev.y + (curr.y - prev.y) * alpha,
+    })
   }
 
   for (let i = 0; i < n; i++) {
     const memberPos: Vector2 = {
-      x: position.x + (offsets[i]?.x ?? 0),
-      y: position.y + (offsets[i]?.y ?? 0),
+      x: position.x + interpolatedOffsets[i].x,
+      y: position.y + interpolatedOffsets[i].y,
     }
     if (memberStatuses[i] === 'active') {
       drawTriangle(ctx, memberPos, PARTY_ACTIVE_COLOR, PARTY_MEMBER_SIZE, direction)

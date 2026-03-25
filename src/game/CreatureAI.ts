@@ -329,6 +329,8 @@ export function selectReactionDecision(
             return { action: 'attack', targetType: 'creature', targetId: target.id, targetPosition: target.position, distance: dist }
           }
         }
+        // If target creature was removed or died, don't keep pursuing a dead target
+        // Return null to clear aggressionTarget
       }
     }
     return null
@@ -397,14 +399,26 @@ export function resolveCreatureReaction(
     waypoints: chasePath,
   }
 
-  if (chasePath.length === 0) return moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
+  if (chasePath.length === 0) {
+    const directMove = moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
+    // If can't pathfind AND can't move directly toward target, give up chase
+    if (distanceBetween(directMove.position, creature.position) <= 0.001) {
+      return { ...clearAggressionTarget(directMove), state: 'idle' as const, waypoints: [] }
+    }
+    return directMove
+  }
 
   const moved = moveCreatureAlongWaypoints(chasing, chasePath, map, multiplier)
   if (
     distanceBetween(moved.position, creature.position) <= 0.001 &&
     distanceBetween(reaction.targetPosition, creature.position) > creature.width / 2
   ) {
-    return moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
+    const directMove = moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
+    // If pathfinding didn't move AND direct move doesn't work, give up
+    if (distanceBetween(directMove.position, creature.position) <= 0.001) {
+      return { ...clearAggressionTarget(directMove), state: 'idle' as const, waypoints: [] }
+    }
+    return directMove
   }
   return moved
 }

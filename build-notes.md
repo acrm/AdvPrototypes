@@ -60,3 +60,4 @@
 - 2026w13-1.11 — Remove full-speed override and enforce fixed 6 TPS
 - 2026w13-1.12 — Add visual interpolation and contextual info/action panel updates
 - 2026w13-1.13 — InfoPanel field cleanup and party formation wedge/column
+- 2026w13-1.14 — Smooth party formation transitions, trap area rendering, disable trap placement when not portable, fix NPC agro pathfinding bugs, remove sight range, hide time-of-day from entity info

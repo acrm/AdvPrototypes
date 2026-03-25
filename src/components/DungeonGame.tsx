@@ -1501,6 +1501,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           !isDefeated &&
           !isRecovering &&
           selectedSettableTrap &&
+          selectedSettableTrap.state === 'portable' &&
           distanceBetween(gameState.party.position, selectedSettableTrap.position) <= PLAYER_PICKUP_RADIUS
         )}
         canThrowCarried={
