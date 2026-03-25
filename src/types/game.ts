@@ -89,6 +89,7 @@ export interface Creature extends GameObject {
   aggression: CreatureAggression // aggro model: proximity/vision/dual
   aggressionTargetId: string | null // tracked target id while reaction behavior is active
   aggressionTargetType: AggressionTargetType | null // tracked target type
+  aggressionOutOfRangeSince: number | null // absolute game time when locked target first left far radius
   aggressionBoostUntil: number | null // absolute game time when sprint burst ends
   aggressionBoostCooldownUntil: number | null // absolute game time when next burst may begin
   sleepSchedule: SleepSchedule // sleep/wake pattern

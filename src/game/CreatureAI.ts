@@ -14,6 +14,7 @@ const SPECIES_RELATION_MATRIX = GAME_SETTINGS.npc.speciesRelationMatrix
 const AGGRESSION_BOOST_MULTIPLIER = GAME_SETTINGS.npc.aggressionBoostMultiplier
 const AGGRESSION_BOOST_DURATION_SECONDS = GAME_SETTINGS.npc.aggressionBoostDurationSeconds
 const AGGRESSION_BOOST_COOLDOWN_SECONDS = GAME_SETTINGS.npc.aggressionBoostCooldownSeconds
+const AGGRESSION_TARGET_LOST_TIMEOUT_SECONDS = 2
 const NPC_BOUNDARY_PADDING = GAME_SETTINGS.npc.mapBoundaryPadding
 const NPC_WAYPOINT_REACH_MULTIPLIER = GAME_SETTINGS.npc.waypointReachDistanceMultiplier
 const FOOD_FEEDING_DURATION = GAME_SETTINGS.food.feedingDurationSecondsByType
@@ -241,7 +242,8 @@ export function clearAggressionTarget(creature: Creature): Creature {
   if (
     creature.aggressionTargetId === null &&
     creature.aggressionTargetType === null &&
-    creature.aggressionBoostUntil === null
+    creature.aggressionBoostUntil === null &&
+    creature.aggressionOutOfRangeSince === null
   ) {
     return creature
   }
@@ -249,6 +251,7 @@ export function clearAggressionTarget(creature: Creature): Creature {
     ...creature,
     aggressionTargetId: null,
     aggressionTargetType: null,
+    aggressionOutOfRangeSince: null,
     aggressionBoostUntil: null,
   }
 }
@@ -263,7 +266,12 @@ export function applyAggressionBurst(
     creature.aggressionBoostCooldownUntil !== null && gameTime < creature.aggressionBoostCooldownUntil
 
   if (boostActive || cooldownActive) {
-    return { ...creature, aggressionTargetId: reaction.targetId, aggressionTargetType: reaction.targetType }
+    return {
+      ...creature,
+      aggressionTargetId: reaction.targetId,
+      aggressionTargetType: reaction.targetType,
+      aggressionOutOfRangeSince: null,
+    }
   }
 
   const boostUntil = gameTime + AGGRESSION_BOOST_DURATION_SECONDS
@@ -271,8 +279,93 @@ export function applyAggressionBurst(
     ...creature,
     aggressionTargetId: reaction.targetId,
     aggressionTargetType: reaction.targetType,
+    aggressionOutOfRangeSince: null,
     aggressionBoostUntil: boostUntil,
     aggressionBoostCooldownUntil: boostUntil + AGGRESSION_BOOST_COOLDOWN_SECONDS,
+  }
+}
+
+function resolveLockedTargetDecision(
+  creature: Creature,
+  party: GameState['party'],
+  creatures: Creature[],
+  gameTime: number
+): { creature: Creature; decision: ReactionDecision | null } {
+  if (creature.aggressionTargetId === null || creature.aggressionTargetType === null) {
+    return { creature, decision: null }
+  }
+
+  if (creature.aggressionTargetType === 'player') {
+    if (party.health <= 0) {
+      return { creature: clearAggressionTarget(creature), decision: null }
+    }
+
+    const dist = distanceBetween(creature.position, party.position)
+    if (dist <= creature.farBehaviorRadius) {
+      return {
+        creature: { ...creature, aggressionOutOfRangeSince: null },
+        decision: {
+          action: 'attack',
+          targetType: 'player',
+          targetId: 'player',
+          targetPosition: party.position,
+          distance: dist,
+        },
+      }
+    }
+
+    const outSince = creature.aggressionOutOfRangeSince ?? gameTime
+    if (gameTime - outSince > AGGRESSION_TARGET_LOST_TIMEOUT_SECONDS) {
+      return { creature: clearAggressionTarget(creature), decision: null }
+    }
+
+    return {
+      creature: { ...creature, aggressionOutOfRangeSince: outSince },
+      decision: {
+        action: 'attack',
+        targetType: 'player',
+        targetId: 'player',
+        targetPosition: party.position,
+        distance: dist,
+      },
+    }
+  }
+
+  const target = creatures.find(
+    (c) => c.id === creature.aggressionTargetId && c.condition !== 'trapped'
+  )
+  if (!target) {
+    return { creature: clearAggressionTarget(creature), decision: null }
+  }
+
+  const dist = distanceBetween(creature.position, target.position)
+  if (dist <= creature.farBehaviorRadius) {
+    return {
+      creature: { ...creature, aggressionOutOfRangeSince: null },
+      decision: {
+        action: 'attack',
+        targetType: 'creature',
+        targetId: target.id,
+        targetPosition: target.position,
+        distance: dist,
+      },
+    }
+  }
+
+  const outSince = creature.aggressionOutOfRangeSince ?? gameTime
+  if (gameTime - outSince > AGGRESSION_TARGET_LOST_TIMEOUT_SECONDS) {
+    return { creature: clearAggressionTarget(creature), decision: null }
+  }
+
+  return {
+    creature: { ...creature, aggressionOutOfRangeSince: outSince },
+    decision: {
+      action: 'attack',
+      targetType: 'creature',
+      targetId: target.id,
+      targetPosition: target.position,
+      distance: dist,
+    },
   }
 }
 
@@ -430,30 +523,6 @@ export function selectReactionDecision(
   }
 
   if (decisions.length === 0) {
-    // Grace zone: if the creature has a locked aggression target that just slipped
-    // slightly outside detection range, keep pursuing it up to 2× the normal radius.
-    // This prevents the one-tick oscillation / backward-jitter glitch.
-    if (creature.aggressionTargetId !== null && creature.aggressionTargetType !== null) {
-      const graceRadius = getAggressiveReactionRadius(creature) * 2
-      if (creature.aggressionTargetType === 'player' && party.health > 0) {
-        const dist = distanceBetween(creature.position, party.position)
-        if (dist <= graceRadius) {
-          return { action: 'attack', targetType: 'player', targetId: 'player', targetPosition: party.position, distance: dist }
-        }
-      } else if (creature.aggressionTargetType === 'creature') {
-        const target = creatures.find(
-          (c) => c.id === creature.aggressionTargetId && c.condition !== 'trapped'
-        )
-        if (target) {
-          const dist = distanceBetween(creature.position, target.position)
-          if (dist <= graceRadius) {
-            return { action: 'attack', targetType: 'creature', targetId: target.id, targetPosition: target.position, distance: dist }
-          }
-        }
-        // If target creature was removed or died, don't keep pursuing a dead target
-        // Return null to clear aggressionTarget
-      }
-    }
     return null
   }
 
@@ -487,11 +556,16 @@ export function resolveCreatureReaction(
 ): Creature | null {
   if (creature.isFriendly || creature.condition === 'trapped') return null
 
-  const reaction = selectReactionDecision(creature, party, creatures, gameTime)
+  let workingCreature = creature
+  let reaction = selectReactionDecision(workingCreature, party, creatures, gameTime)
+  if (!reaction) {
+    const locked = resolveLockedTargetDecision(workingCreature, party, creatures, gameTime)
+    workingCreature = locked.creature
+    reaction = locked.decision
+  }
   if (!reaction) return null
 
   // If in idle state and we're making a detection decision, schedule next vision check
-  let workingCreature = creature
   if (workingCreature.state === 'idle') {
     workingCreature = scheduleNextVisionCheck(workingCreature, gameTime)
   }

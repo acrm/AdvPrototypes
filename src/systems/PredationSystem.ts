@@ -61,6 +61,7 @@ export function resolvePredationTick(
       carriedFood: null,
       aggressionTargetId: null,
       aggressionTargetType: null,
+      aggressionOutOfRangeSince: null,
       aggressionBoostUntil: null,
     })
   }
