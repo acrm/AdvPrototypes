@@ -76,6 +76,101 @@ export function getSpeciesRelation(
 }
 
 // ---------------------------------------------------------------------------
+// Vision mechanics (state-aware detection)
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculate if a target is within the creature's view cone.
+ * Creatures face a direction and have a limited vision arc when idle.
+ * @param creaturePos Position of the perceiving creature
+ * @param creatureDir Direction creature is facing (in radians)
+ * @param targetPos Position of the target to check
+ * @param viewArc Angle of view cone in degrees (default 120°, ±60° from center)
+ */
+function isInViewCone(
+  creaturePos: Vector2,
+  creatureDir: number,
+  targetPos: Vector2,
+  viewArcDegrees: number = 120
+): boolean {
+  const dx = targetPos.x - creaturePos.x
+  const dy = targetPos.y - creaturePos.y
+  const angleToTarget = Math.atan2(dy, dx)
+
+  // Normalize angles to [-π, π]
+  const normalizeAngle = (angle: number): number => {
+    while (angle > Math.PI) angle -= 2 * Math.PI
+    while (angle < -Math.PI) angle += 2 * Math.PI
+    return angle
+  }
+
+  const dirDiff = normalizeAngle(angleToTarget - creatureDir)
+  const viewArcRadians = (viewArcDegrees / 2) * (Math.PI / 180)
+
+  return Math.abs(dirDiff) <= viewArcRadians
+}
+
+/**
+ * Check if creature can detect the player based on its current state.
+ * - SLEEPING: Cannot detect (immediate return false)
+ * - IDLE: Can detect only within view cone and only during periodic vision checks
+ * - PATROL: Can detect at full radius with 360° awareness
+ */
+function canDetectPlayer(
+  creature: Creature,
+  partyPos: Vector2,
+  gameTime: number,
+  skipViewCone: boolean = false
+): boolean {
+  // Sleeping creatures can never detect player (far radius suppressed)
+  if (creature.state === 'sleeping') return false
+
+  // Distance check
+  const dist = distanceBetween(creature.position, partyPos)
+
+  // IDLE creatures: Only detect during scheduled vision checks with limited cone
+  if (creature.state === 'idle') {
+    // Only check vision on scheduled ticks
+    if (gameTime < creature.nextVisionCheckAt) return false
+
+    // Reduce effective detection radius when idle (80% of normal)
+    const idleDetectionRadius = getAggressiveReactionRadius(creature) * 0.8
+
+    if (dist > idleDetectionRadius) return false
+
+    // Must be in view cone unless specifically skipped
+    if (!skipViewCone && !isInViewCone(creature.position, creature.direction, partyPos, 120)) {
+      return false
+    }
+
+    return true
+  }
+
+  // PATROL creatures: Full distance-based detection (no cone restriction)
+  // Use the standard reaction radius
+  return dist <= getAggressiveReactionRadius(creature)
+}
+
+/**
+ * Update creature's vision check timer when in idle state.
+ * Called after a vision check happens to schedule the next one.
+ */
+function scheduleNextVisionCheck(creature: Creature, gameTime: number): Creature {
+  if (creature.state !== 'idle') return creature
+
+  // Schedule next check 0.5-1.0 seconds from now
+  const nextCheckInterval = getRandomFloat(0.5, 1.0)
+  return {
+    ...creature,
+    nextVisionCheckAt: gameTime + nextCheckInterval,
+  }
+}
+
+function getRandomFloat(min: number, max: number): number {
+  return Math.random() * (max - min) + min
+}
+
+// ---------------------------------------------------------------------------
 // Alert state
 // ---------------------------------------------------------------------------
 
@@ -279,7 +374,8 @@ function getReactionPriority(creature: Creature, decision: ReactionDecision): nu
 export function selectReactionDecision(
   creature: Creature,
   party: GameState['party'],
-  creatures: Creature[]
+  creatures: Creature[],
+  gameTime: number
 ): ReactionDecision | null {
   const decisions: ReactionDecision[] = []
 
@@ -287,10 +383,16 @@ export function selectReactionDecision(
     const distToPlayer = distanceBetween(creature.position, party.position)
     const rel = creature.isFriendly ? 'friendly' : creature.relation
 
-    if (shouldAttackByRelation(rel, distToPlayer, creature)) {
-      decisions.push({ action: 'attack', targetType: 'player', targetId: 'player', targetPosition: party.position, distance: distToPlayer })
-    } else if (shouldAvoidByRelation(rel, distToPlayer, creature)) {
-      decisions.push({ action: 'avoid', targetType: 'player', targetId: 'player', targetPosition: party.position, distance: distToPlayer })
+    // Use state-aware vision for player detection
+    const canSeePlayer = canDetectPlayer(creature, party.position, gameTime)
+    
+    // Only attack/avoid if creature can actually detect the player
+    if (canSeePlayer) {
+      if (shouldAttackByRelation(rel, distToPlayer, creature)) {
+        decisions.push({ action: 'attack', targetType: 'player', targetId: 'player', targetPosition: party.position, distance: distToPlayer })
+      } else if (shouldAvoidByRelation(rel, distToPlayer, creature)) {
+        decisions.push({ action: 'avoid', targetType: 'player', targetId: 'player', targetPosition: party.position, distance: distToPlayer })
+      }
     }
   }
 
@@ -366,14 +468,20 @@ export function resolveCreatureReaction(
 ): Creature | null {
   if (creature.isFriendly || creature.condition === 'trapped') return null
 
-  const reaction = selectReactionDecision(creature, party, creatures)
+  const reaction = selectReactionDecision(creature, party, creatures, gameTime)
   if (!reaction) return null
 
+  // If in idle state and we're making a detection decision, schedule next vision check
+  let workingCreature = creature
+  if (workingCreature.state === 'idle') {
+    workingCreature = scheduleNextVisionCheck(workingCreature, gameTime)
+  }
+
   if (reaction.action === 'avoid') {
-    const fleePos = findFleePosition(creature, reaction.targetPosition, map)
-    const fleePath = findPathWithObstacles(creature.position, fleePos, map.objects, map.width, map.height)
+    const fleePos = findFleePosition(workingCreature, reaction.targetPosition, map)
+    const fleePath = findPathWithObstacles(workingCreature.position, fleePos, map.objects, map.width, map.height)
     const base = {
-      ...clearAggressionTarget(creature),
+      ...clearAggressionTarget(workingCreature),
       alertUntil: gameTime + ALERT_DURATION_SECONDS,
       targetFoodId: null,
       eatingUntil: null,
@@ -386,9 +494,9 @@ export function resolveCreatureReaction(
   }
 
   const chasePath = findPathWithObstacles(
-    creature.position, reaction.targetPosition, map.objects, map.width, map.height
+    workingCreature.position, reaction.targetPosition, map.objects, map.width, map.height
   )
-  const boosted = applyAggressionBurst(creature, reaction, gameTime)
+  const boosted = applyAggressionBurst(workingCreature, reaction, gameTime)
   const multiplier = isAggressionBoostActive(boosted, gameTime) ? AGGRESSION_BOOST_MULTIPLIER : 1
   const chasing = {
     ...boosted,
@@ -402,7 +510,7 @@ export function resolveCreatureReaction(
   if (chasePath.length === 0) {
     const directMove = moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
     // If can't pathfind AND can't move directly toward target, give up chase
-    if (distanceBetween(directMove.position, creature.position) <= 0.001) {
+    if (distanceBetween(directMove.position, workingCreature.position) <= 0.001) {
       return { ...clearAggressionTarget(directMove), state: 'idle' as const, waypoints: [] }
     }
     return directMove
@@ -410,12 +518,12 @@ export function resolveCreatureReaction(
 
   const moved = moveCreatureAlongWaypoints(chasing, chasePath, map, multiplier)
   if (
-    distanceBetween(moved.position, creature.position) <= 0.001 &&
-    distanceBetween(reaction.targetPosition, creature.position) > creature.width / 2
+    distanceBetween(moved.position, workingCreature.position) <= 0.001 &&
+    distanceBetween(reaction.targetPosition, workingCreature.position) > workingCreature.width / 2
   ) {
     const directMove = moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
     // If pathfinding didn't move AND direct move doesn't work, give up
-    if (distanceBetween(directMove.position, creature.position) <= 0.001) {
+    if (distanceBetween(directMove.position, workingCreature.position) <= 0.001) {
       return { ...clearAggressionTarget(directMove), state: 'idle' as const, waypoints: [] }
     }
     return directMove

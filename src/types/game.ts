@@ -94,6 +94,7 @@ export interface Creature extends GameObject {
   sleepSchedule: SleepSchedule // sleep/wake pattern
   idleTurnInterval: number // seconds between idle turns (1-2s)
   nextIdleTurnAt: number // absolute game time when next idle turn happens
+  nextVisionCheckAt: number // absolute game time when idle creature next checks for player (periodic awareness)
   carriedFood: Food | null // food being carried
   dietPriorities: DietTarget[] // ordered by preference (index 0 is highest priority)
 }

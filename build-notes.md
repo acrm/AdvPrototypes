@@ -62,3 +62,4 @@
 - 2026w13-1.13 — InfoPanel field cleanup and party formation wedge/column
 - 2026w13-1.14 — Smooth party formation transitions, trap area rendering, disable trap placement when not portable, fix NPC agro pathfinding bugs, remove sight range, hide time-of-day from entity info
 - 2026w13-1.15 — Add shelter zones to dungeon layout and create prioritized TODO roadmap
+- 2026w13-1.16 — Implement state-aware vision mechanics for creatures (sleeping detection suppressed, idle periodic checks with view cone, patrol full awareness)

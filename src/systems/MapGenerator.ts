@@ -521,12 +521,15 @@ function isSleeping(schedule: SleepSchedule, cycleTime: number): boolean {
   return cycleTime >= sleepStart || cycleTime <= sleepEnd
 }
 
-function createIdleTurnTiming(startGameTime: number = 0): { idleTurnInterval: number; nextIdleTurnAt: number } {
+function createIdleTurnTiming(startGameTime: number = 0): { idleTurnInterval: number; nextIdleTurnAt: number; nextVisionCheckAt: number } {
   const [minSeconds, maxSeconds] = GAME_SETTINGS.npc.idleTurnIntervalRange
   const idleTurnInterval = getRandomFloat(minSeconds, maxSeconds)
+  // Idle creatures check for vision every 0.5-1.0 seconds (more frequent than movement turns)
+  const visionCheckInterval = getRandomFloat(0.5, 1.0)
   return {
     idleTurnInterval,
     nextIdleTurnAt: startGameTime + idleTurnInterval,
+    nextVisionCheckAt: startGameTime + visionCheckInterval,
   }
 }
 
