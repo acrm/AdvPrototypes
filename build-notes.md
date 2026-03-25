@@ -65,3 +65,4 @@
 - 2026w13-1.16 — Implement state-aware vision mechanics for creatures (sleeping detection suppressed, idle periodic checks with view cone, patrol full awareness)
 - 2026w13-1.17 — Use star spawn chunks as shelters, block creatures from entering shelters, and fix victory end-screen transition
 - 2026w13-1.18 — Keep locked aggro targets on pathfinding and drop chase only after 2s outside far detection radius
+- 2026w13-1.19 — Add detailed debug logging for player chase pathfinding and aggression reset points

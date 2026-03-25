@@ -916,6 +916,24 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           return reactionDrivenCreature
         }
 
+        if (
+          GAME_SETTINGS.npc.debugPlayerChaseLogs &&
+          updatedCreature.aggressionTargetType === 'player'
+        ) {
+          console.debug('[NPC_CHASE]', {
+            stage: 'tick-clear-aggression-no-reaction',
+            id: updatedCreature.id,
+            species: updatedCreature.species,
+            state: updatedCreature.state,
+            pos: {
+              x: Number(updatedCreature.position.x.toFixed(1)),
+              y: Number(updatedCreature.position.y.toFixed(1)),
+            },
+            aggressionTargetId: updatedCreature.aggressionTargetId,
+            aggressionOutOfRangeSince: updatedCreature.aggressionOutOfRangeSince,
+          })
+        }
+
         updatedCreature = clearAggressionTarget(updatedCreature)
 
         const trackedFood = updatedCreature.targetFoodId ? findFoodById(updatedCreature.targetFoodId) : null

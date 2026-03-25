@@ -139,6 +139,8 @@ export const GAME_SETTINGS = {
     aggressionBoostMultiplier: 3,
     aggressionBoostDurationSeconds: 2,
     aggressionBoostCooldownSeconds: 2,
+    /** Verbose logs for creatures that chase the player (pathfinding/lock/loss flow). */
+    debugPlayerChaseLogs: true,
     speedRanges: {
       rat: [2.8, 4.5],
       spider: [2.3, 3.6],

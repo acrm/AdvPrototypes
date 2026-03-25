@@ -15,6 +15,7 @@ const AGGRESSION_BOOST_MULTIPLIER = GAME_SETTINGS.npc.aggressionBoostMultiplier
 const AGGRESSION_BOOST_DURATION_SECONDS = GAME_SETTINGS.npc.aggressionBoostDurationSeconds
 const AGGRESSION_BOOST_COOLDOWN_SECONDS = GAME_SETTINGS.npc.aggressionBoostCooldownSeconds
 const AGGRESSION_TARGET_LOST_TIMEOUT_SECONDS = 2
+const DEBUG_PLAYER_CHASE_LOGS = GAME_SETTINGS.npc.debugPlayerChaseLogs
 const NPC_BOUNDARY_PADDING = GAME_SETTINGS.npc.mapBoundaryPadding
 const NPC_WAYPOINT_REACH_MULTIPLIER = GAME_SETTINGS.npc.waypointReachDistanceMultiplier
 const FOOD_FEEDING_DURATION = GAME_SETTINGS.food.feedingDurationSecondsByType
@@ -22,6 +23,28 @@ const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
 const [TRAP_IMMOBILIZE_MIN, TRAP_IMMOBILIZE_MAX] = GAME_SETTINGS.trap.immobilizeDurationRangeSeconds
 
 const CREATURE_STEP_SCALES = [1, 0.66, 0.4, 0.2] as const
+
+function logPlayerChase(
+  creature: Creature,
+  stage: string,
+  details: Record<string, unknown>
+): void {
+  if (!DEBUG_PLAYER_CHASE_LOGS) return
+  console.debug('[NPC_CHASE]', {
+    stage,
+    id: creature.id,
+    species: creature.species,
+    state: creature.state,
+    pos: {
+      x: Number(creature.position.x.toFixed(1)),
+      y: Number(creature.position.y.toFixed(1)),
+    },
+    aggressionTargetId: creature.aggressionTargetId,
+    aggressionTargetType: creature.aggressionTargetType,
+    aggressionOutOfRangeSince: creature.aggressionOutOfRangeSince,
+    ...details,
+  })
+}
 
 function getCreatureNavigationObstacles(map: GameState['map']): GameObject[] {
   return [
@@ -297,11 +320,16 @@ function resolveLockedTargetDecision(
 
   if (creature.aggressionTargetType === 'player') {
     if (party.health <= 0) {
+      logPlayerChase(creature, 'locked-target-player-dropped-party-dead', {})
       return { creature: clearAggressionTarget(creature), decision: null }
     }
 
     const dist = distanceBetween(creature.position, party.position)
     if (dist <= creature.farBehaviorRadius) {
+      logPlayerChase(creature, 'locked-target-player-kept-in-far-radius', {
+        dist: Number(dist.toFixed(2)),
+        farBehaviorRadius: Number(creature.farBehaviorRadius.toFixed(2)),
+      })
       return {
         creature: { ...creature, aggressionOutOfRangeSince: null },
         decision: {
@@ -316,8 +344,19 @@ function resolveLockedTargetDecision(
 
     const outSince = creature.aggressionOutOfRangeSince ?? gameTime
     if (gameTime - outSince > AGGRESSION_TARGET_LOST_TIMEOUT_SECONDS) {
+      logPlayerChase(creature, 'locked-target-player-timeout-drop', {
+        outOfRangeDuration: Number((gameTime - outSince).toFixed(2)),
+        timeout: AGGRESSION_TARGET_LOST_TIMEOUT_SECONDS,
+        dist: Number(dist.toFixed(2)),
+      })
       return { creature: clearAggressionTarget(creature), decision: null }
     }
+
+    logPlayerChase(creature, 'locked-target-player-out-of-range-keep-chasing', {
+      outOfRangeDuration: Number((gameTime - outSince).toFixed(2)),
+      timeout: AGGRESSION_TARGET_LOST_TIMEOUT_SECONDS,
+      dist: Number(dist.toFixed(2)),
+    })
 
     return {
       creature: { ...creature, aggressionOutOfRangeSince: outSince },
@@ -565,6 +604,13 @@ export function resolveCreatureReaction(
   }
   if (!reaction) return null
 
+  if (reaction.targetType === 'player') {
+    logPlayerChase(workingCreature, 'reaction-selected-player', {
+      action: reaction.action,
+      distance: Number(reaction.distance.toFixed(2)),
+    })
+  }
+
   // If in idle state and we're making a detection decision, schedule next vision check
   if (workingCreature.state === 'idle') {
     workingCreature = scheduleNextVisionCheck(workingCreature, gameTime)
@@ -599,6 +645,13 @@ export function resolveCreatureReaction(
     map.width,
     map.height
   )
+  if (reaction.targetType === 'player') {
+    logPlayerChase(workingCreature, 'path-built-to-player', {
+      pathLength: chasePath.length,
+      targetX: Number(reaction.targetPosition.x.toFixed(1)),
+      targetY: Number(reaction.targetPosition.y.toFixed(1)),
+    })
+  }
   const boosted = applyAggressionBurst(workingCreature, reaction, gameTime)
   const multiplier = isAggressionBoostActive(boosted, gameTime) ? AGGRESSION_BOOST_MULTIPLIER : 1
   const chasing = {
@@ -614,7 +667,18 @@ export function resolveCreatureReaction(
     const directMove = moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
     // If can't pathfind AND can't move directly toward target, give up chase
     if (distanceBetween(directMove.position, workingCreature.position) <= 0.001) {
+      if (reaction.targetType === 'player') {
+        logPlayerChase(workingCreature, 'path-empty-direct-move-failed-drop', {
+          reason: 'no-path-and-no-direct-progress',
+        })
+      }
       return { ...clearAggressionTarget(directMove), state: 'idle' as const, waypoints: [] }
+    }
+    if (reaction.targetType === 'player') {
+      logPlayerChase(workingCreature, 'path-empty-direct-move-success', {
+        toX: Number(directMove.position.x.toFixed(1)),
+        toY: Number(directMove.position.y.toFixed(1)),
+      })
     }
     return directMove
   }
@@ -627,9 +691,29 @@ export function resolveCreatureReaction(
     const directMove = moveCreatureDirectly(chasing, reaction.targetPosition, map, multiplier)
     // If pathfinding didn't move AND direct move doesn't work, give up
     if (distanceBetween(directMove.position, workingCreature.position) <= 0.001) {
+      if (reaction.targetType === 'player') {
+        logPlayerChase(workingCreature, 'path-stalled-direct-move-failed-drop', {
+          reason: 'path-stall-and-no-direct-progress',
+          pathLength: chasePath.length,
+        })
+      }
       return { ...clearAggressionTarget(directMove), state: 'idle' as const, waypoints: [] }
     }
+    if (reaction.targetType === 'player') {
+      logPlayerChase(workingCreature, 'path-stalled-direct-move-success', {
+        pathLength: chasePath.length,
+        toX: Number(directMove.position.x.toFixed(1)),
+        toY: Number(directMove.position.y.toFixed(1)),
+      })
+    }
     return directMove
+  }
+  if (reaction.targetType === 'player') {
+    logPlayerChase(workingCreature, 'path-follow-success', {
+      nextWaypoints: moved.waypoints.length,
+      toX: Number(moved.position.x.toFixed(1)),
+      toY: Number(moved.position.y.toFixed(1)),
+    })
   }
   return moved
 }
