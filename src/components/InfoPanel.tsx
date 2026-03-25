@@ -4,12 +4,11 @@ import { GAME_SETTINGS } from '../config/gameSettings'
 import './InfoPanel.css'
 
 const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
-const CHUNK_SIZE_PX = GAME_SETTINGS.world.navigationCellSize * GAME_SETTINGS.world.layoutRegionScale
+const NAV_CELL_PX = GAME_SETTINGS.world.navigationCellSize // 1 block = 1 navigation cell = 50 px
 type TickPlaybackMode = 'paused' | 'normal'
 
 interface InfoPanelProps {
   selectedObject: GameObject | null
-  creatures: Creature[]
   party: Party
   clockLabel: string
   clockDay: number
@@ -41,7 +40,6 @@ interface InfoPanelProps {
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({
   selectedObject,
-  creatures,
   party,
   clockLabel,
   clockDay,
@@ -80,18 +78,19 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 
   const displayPartyInfo = (): string => {
     let info = `= PARTY STATUS =\n\n`
-    info += `[TIME] Day ${clockDay} ${clockLabel} | ${getTimeOfDay(cycleTime)}\n\n`
-    info += `[SIM] ${getTickPlaybackModeLabel(tickPlaybackMode)}\n\n`
-    info += `[HEALTH] ${formatHealthHearts(party.health)} (${party.health}/3)\n\n`
+    const partyLine = party.members.map((name, i) => {
+      const heart = (party.memberStatuses[i] ?? 'downed') === 'active' ? '❤' : '·'
+      return `${heart} ${name}`
+    }).join('  ')
+    info += `[PARTY] ${partyLine}\n\n`
     info += `[SPEED] ${formatPartySpeedLabel(party.health)}\n\n`
-    info += `[MEMBERS] ${party.members.join(', ')}\n\n`
     info += `[POSITION] (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
     info += `[CARRYING] ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
     info += `[OBSERVED] ${party.observedCreatures.size} creatures\n\n`
     info += `[CONTROLS] Actions are shown below only when they are available\n\n`
 
     if (isThrowTargeting) {
-      info += `[THROW MODE] Click walkable ground within ${formatChunks(throwRadius)} chunks\n\n`
+      info += `[THROW MODE] Click walkable ground within ${formatBlocks(throwRadius)} bl\n\n`
     }
 
     if (isDefeated) {
@@ -118,8 +117,8 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     return info
   }
 
-  const formatChunks = (pixels: number): string => {
-    return (pixels / CHUNK_SIZE_PX).toFixed(2)
+  const formatBlocks = (pixels: number): string => {
+    return (pixels / NAV_CELL_PX).toFixed(1)
   }
 
   const cycleSecToHHMM = (s: number): string => {
@@ -132,15 +131,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   const getCreatureDescription = (creature: Creature): string => {
     let desc = `${creature.description}\n\n`
     
-    // Show current state
-    const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
-    desc += `[STATE] ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
-    const statusParts = [getCreatureConditionLabel(creature, gameTime)]
-    if (creature.alertUntil !== null && gameTime < creature.alertUntil) {
-      statusParts.push('Alert')
-    }
-    statusParts.push(getDetectionModeLabel(creature))
-    desc += `[STATUS] ${statusParts.join(' | ')}\n\n`
+    desc += `[STATE] ${getCreatureStateLabel(creature, gameTime)}\n\n`
     
     // Show relation
     const relationEmoji = creature.relation === 'friendly' ? '💚' : creature.relation === 'aggressive' ? '❤️‍🔥' : '⚪'
@@ -148,12 +139,6 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     
     if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
       desc += `[RELEASE IN] ${Math.max(0, creature.trappedUntil - gameTime).toFixed(1)}s\n\n`
-    }
-
-    if (creature.condition === 'enraged') {
-      desc += `[HOSTILITY] Locked on player pursuit\n\n`
-    } else if (creature.isFriendly) {
-      desc += `[HOSTILITY] Non-hostile to player\n\n`
     }
 
     if (creature.eatingUntil !== null) {
@@ -166,10 +151,13 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     const sleepStart = creature.sleepSchedule.sleepStart
     const sleepEnd = creature.sleepSchedule.sleepEnd
     desc += `[SLEEP] ${cycleSecToHHMM(sleepStart)}–${cycleSecToHHMM(sleepEnd)} ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
-    desc += `[RADII] Near ${formatChunks(creature.alertRadius)} chunks | Far ${formatChunks(creature.farBehaviorRadius)} chunks\n`
-    desc += `[VISION RANGE] ${formatChunks(creature.detectionRadius)} chunks\n`
-    desc += `[RADIUS MEANING] Near = immediate wake/reaction. Far = spacing/chase band for avoid/vision behaviors.\n\n`
-    desc += `[FLEEING FROM] ${getFleeingFromLabel(creature, creatures, party)}\n\n`
+    desc += `[ALARM ZONE] ${formatBlocks(creature.alertRadius)} bl\n`
+    desc += `[SIGHT RANGE] ${formatBlocks(creature.detectionRadius)} bl\n`
+    desc += `[AWARENESS ZONE] ${formatBlocks(creature.farBehaviorRadius)} bl\n\n`
+    const fleeTargets = getFleeTargetsList(creature)
+    if (fleeTargets) {
+      desc += `[AVOIDS] ${fleeTargets}\n\n`
+    }
     
     if (creature.behavior) desc += `[BEHAVIOR] ${creature.behavior}\n`
     
@@ -200,7 +188,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
       `[STATUS] ${formatTrapStateLabel(trap)}`,
       `[VISIBILITY] ${trap.state === 'portable' ? 'Visible and portable' : 'Hidden after placement'}`,
       `[TARGET SPECIES] ${trap.targetSpecies}`,
-      `[TRIGGER RADIUS] ${formatChunks(trap.triggerRadius)} chunks`,
+      `[TRIGGER RADIUS] ${formatBlocks(trap.triggerRadius)} bl`,
       ...(trap.state === 'arming' ? [`[ARMED IN] ...`] : []),
     ].join('\n')
   }
@@ -232,6 +220,11 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
       </div>
       <div className="panel-content">
         <div className="entity-name-block">{entityDisplayName}</div>
+        <div className="fixed-time-block">
+          <span className="time-day">Day {clockDay}</span>
+          <span className="time-clock">{clockLabel}</span>
+          <span className="time-phase">{getTimeOfDay(cycleTime)}</span>
+        </div>
         <div className="panel-content-details">
           <InfoContent text={content} />
         </div>
@@ -328,11 +321,6 @@ function getTickPlaybackModeLabel(mode: TickPlaybackMode): string {
   return 'Running (6 TPS)'
 }
 
-function formatHealthHearts(health: number): string {
-  const clamped = Math.max(0, Math.min(3, Math.floor(health)))
-  return `${'❤'.repeat(clamped)}${'·'.repeat(3 - clamped)}`
-}
-
 function formatPartySpeedLabel(health: number): string {
   if (health >= 3) {
     return '100% (normal)'
@@ -349,68 +337,38 @@ function formatPartySpeedLabel(health: number): string {
   return '0% (defeated)'
 }
 
-function getDetectionModeLabel(creature: Creature): string {
-  if (creature.condition === 'trapped') {
-    return 'Immobilized (trap)'
+function getCreatureStateLabel(creature: Creature, gameTime: number): string {
+  if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
+    return `🪤 Trapped`
   }
-
   if (creature.condition === 'enraged') {
-    return 'Pursuit (enraged)'
+    return `❤️‍🔥 Pursuit (enraged)`
   }
-
+  const isAlerted = creature.alertUntil !== null && gameTime < creature.alertUntil
   if (creature.state === 'sleeping') {
-    return 'Inactive (sleeping)'
+    return `💤 Sleeping`
   }
-
   if (creature.state === 'idle') {
-    return 'Periodic checks (idle)'
+    return isAlerted ? `⏸️ Idle · Alerted` : `⏸️ Idle`
   }
-
-  return 'Full awareness (patrol)'
+  // patrol
+  const suffix = isAlerted ? ' · Alerted' : creature.isFriendly ? ' · Friendly' : ''
+  return `🚶 Patrol${suffix}`
 }
 
-function getFleeingFromLabel(creature: Creature, creatures: Creature[], party: Party): string {
-  const candidates: Array<{ label: string; distance: number }> = []
-
+function getFleeTargetsList(creature: Creature): string {
+  const targets: string[] = []
   if (creature.relation === 'avoid') {
-    const distanceToParty = Math.hypot(
-      creature.position.x - party.position.x,
-      creature.position.y - party.position.y
-    )
-    if (distanceToParty <= creature.farBehaviorRadius && party.health > 0) {
-      candidates.push({ label: 'Adventuring Party', distance: distanceToParty })
-    }
+    targets.push('Adventuring Party')
   }
-
   const relationMatrix = GAME_SETTINGS.npc.speciesRelationMatrix as Record<string, Record<string, string>>
-  for (const other of creatures) {
-    if (other.id === creature.id || other.condition === 'trapped') {
-      continue
-    }
-
-    const relationToOther = relationMatrix[creature.species]?.[other.species] ?? 'neutral'
-    if (relationToOther !== 'avoid') {
-      continue
-    }
-
-    const distance = Math.hypot(
-      creature.position.x - other.position.x,
-      creature.position.y - other.position.y
-    )
-    if (distance <= creature.farBehaviorRadius) {
-      candidates.push({
-        label: `${other.name} (${getCreatureDisplayName(other.species)})`,
-        distance,
-      })
+  const myRelations = relationMatrix[creature.species] ?? {}
+  for (const [otherSpecies, relation] of Object.entries(myRelations)) {
+    if (relation === 'avoid') {
+      targets.push(getCreatureDisplayName(otherSpecies))
     }
   }
-
-  if (candidates.length === 0) {
-    return 'No active flee target'
-  }
-
-  candidates.sort((a, b) => a.distance - b.distance)
-  return candidates[0].label
+  return targets.join(', ')
 }
 
 function getCreatureDisplayName(species: string): string {
@@ -447,22 +405,6 @@ function getCreatureDisplayName(species: string): string {
   }
 
   return species
-}
-
-function getCreatureConditionLabel(creature: Creature, gameTime: number): string {
-  if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
-    return `Trapped (${Math.max(0, creature.trappedUntil - gameTime).toFixed(1)}s left)`
-  }
-
-  if (creature.condition === 'enraged') {
-    return 'Enraged'
-  }
-
-  if (creature.isFriendly) {
-    return 'Friendly'
-  }
-
-  return 'Normal'
 }
 
 function formatTrapStateLabel(trap: Trap): string {

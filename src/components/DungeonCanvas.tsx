@@ -3,7 +3,6 @@ import { Creature, GameState, Vector2 } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
 import {
   PARTY_MEMBER_SIZE,
-  PARTY_MEMBER_SPACING,
   PARTY_ACTIVE_COLOR,
   PARTY_DOWNED_COLOR,
   PARTY_DOWNED_STROKE,
@@ -227,7 +226,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
         ...nextState.party,
         position: partyPosition,
         direction: partyDirection,
-      })
+      }, nextState.isMoving)
 
     // Draw carried item near party direction
       if (nextState.party.carriedItem) {
@@ -630,16 +629,43 @@ function getCameraOffset(
   }
 }
 
-function drawPartyMembers(ctx: CanvasRenderingContext2D, party: GameState['party']) {
+function drawPartyMembers(ctx: CanvasRenderingContext2D, party: GameState['party'], isMoving: boolean) {
   const { position, direction, memberStatuses } = party
   const n = memberStatuses.length
-  const perp = direction + Math.PI / 2
+  const fwd = { x: Math.cos(direction), y: Math.sin(direction) }
+  const perp = { x: -Math.sin(direction), y: Math.cos(direction) }
+
+  let offsets: Array<{ x: number; y: number }>
+
+  if (isMoving) {
+    // Column formation: leader → middle → rear, small lateral wobble
+    const SPACING = 16
+    const WOBBLE_AMP = 3
+    const t = performance.now() / 1000
+    const WOBBLE_FREQ = Math.PI * 3 // ~1.5 Hz
+    const w1 = WOBBLE_AMP * Math.sin(t * WOBBLE_FREQ)
+    const w2 = WOBBLE_AMP * Math.sin(t * WOBBLE_FREQ + Math.PI)
+    offsets = [
+      { x: 0, y: 0 },
+      { x: -fwd.x * SPACING + perp.x * w1, y: -fwd.y * SPACING + perp.y * w1 },
+      { x: -fwd.x * SPACING * 2 + perp.x * w2, y: -fwd.y * SPACING * 2 + perp.y * w2 },
+    ]
+  } else {
+    // Wedge formation: leader at tip, two flankers behind
+    const LEADER = 10
+    const BACK = 8
+    const SIDE = 14
+    offsets = [
+      { x: fwd.x * LEADER, y: fwd.y * LEADER },
+      { x: -fwd.x * BACK - perp.x * SIDE, y: -fwd.y * BACK - perp.y * SIDE },
+      { x: -fwd.x * BACK + perp.x * SIDE, y: -fwd.y * BACK + perp.y * SIDE },
+    ]
+  }
 
   for (let i = 0; i < n; i++) {
-    const offset = (i - (n - 1) / 2) * PARTY_MEMBER_SPACING
     const memberPos: Vector2 = {
-      x: position.x + Math.cos(perp) * offset,
-      y: position.y + Math.sin(perp) * offset,
+      x: position.x + (offsets[i]?.x ?? 0),
+      y: position.y + (offsets[i]?.y ?? 0),
     }
     if (memberStatuses[i] === 'active') {
       drawTriangle(ctx, memberPos, PARTY_ACTIVE_COLOR, PARTY_MEMBER_SIZE, direction)

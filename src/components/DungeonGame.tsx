@@ -146,6 +146,24 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
     return () => cancelAnimationFrame(animationFrameId)
   }, [])
 
+  // Spacebar toggles pause/run
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault()
+        setTickPlaybackMode((prev) => {
+          if (prev === 'normal') {
+            setQueuedTickSteps(0)
+            return 'paused'
+          }
+          return 'normal'
+        })
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
 
   const findNearbyCarryable = (
     items: Item[],
@@ -1452,7 +1470,6 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       />
       <InfoPanel
         selectedObject={gameState.selectedObject}
-        creatures={gameState.map.creatures}
         party={gameState.party}
         clockLabel={clockLabel}
         clockDay={gameState.clock.day}
