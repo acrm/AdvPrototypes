@@ -27,6 +27,7 @@ import {
   clearExpiredAggressionState,
   getFeedingDurationSeconds,
   getEffectiveAggressionModel,
+  getCreatureNavigationObstacles,
   getTrapImmobilizeDuration,
   isCreatureInAlertRadius,
   isCreatureInFarBehaviorRadius,
@@ -66,6 +67,17 @@ const DANGEROUS_FOOD_DAMAGE = GAME_SETTINGS.health.dangerousFoodDamageByType
 const SHELTER_CHUNKS = getShelterChunks()
 const AI_RADIUS_CHUNKS = GAME_SETTINGS.npc.aiProcessingRadiusChunks
 const AI_RADIUS_PX = AI_RADIUS_CHUNKS * LAYOUT_REGION_SIZE
+
+const endSession = (state: GameState): GameState => ({
+  ...state,
+  party: {
+    ...state.party,
+    path: [],
+    targetPosition: null,
+  },
+  isMoving: false,
+  sessionStatus: 'gameover',
+})
 
 type Carryable = Item | Food | Trap | Artifact
 type TickPlaybackMode = 'paused' | 'normal'
@@ -399,15 +411,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
     }
 
     if (hasArtifactExtracted(state.party, state.map.extractionZone) || state.party.health <= 0) {
-      return {
-        ...state,
-        party: {
-          ...state.party,
-          path: [],
-          targetPosition: null,
-        },
-        isMoving: false,
-      }
+      return endSession(state)
     }
 
     if (state.party.recoveringUntil !== null && state.gameTime < state.party.recoveringUntil) {
@@ -503,7 +507,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       }
     }
 
-    return {
+    const nextState = {
       ...state,
       map: updatedMap,
       party: {
@@ -515,6 +519,10 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       },
       isMoving: false,
     }
+
+    return hasArtifactExtracted(nextState.party, nextState.map.extractionZone)
+      ? endSession(nextState)
+      : nextState
   }
 
   const processQueuedThrowTick = (state: GameState, throwTarget: Vector2): GameState => {
@@ -708,12 +716,14 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
   const runCreatureSimulationTick = useCallback(() => {
     setGameState((prev) => {
       if (hasArtifactExtracted(prev.party, prev.map.extractionZone)) {
-        return prev
+        return endSession(prev)
       }
 
       if (prev.party.health <= 0) {
-        return prev
+        return endSession(prev)
       }
+
+      const creatureNavigationObstacles = getCreatureNavigationObstacles(prev.map)
 
       const nextGameTime = prev.gameTime + CYCLE_STEP
       const newCycleTime = (prev.cycleTime + CYCLE_STEP) % CYCLE_DURATION_SECONDS
@@ -807,7 +817,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           const chasePath = findPathWithObstacles(
             creature.position,
             prev.party.position,
-            prev.map.objects,
+            creatureNavigationObstacles,
             prev.map.width,
             prev.map.height
           )
@@ -947,7 +957,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           const pathToFood = findPathWithObstacles(
             updatedCreature.position,
             trackedFood.position,
-            prev.map.objects,
+            creatureNavigationObstacles,
             prev.map.width,
             prev.map.height
           )
@@ -977,7 +987,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           const pathToFood = findPathWithObstacles(
             updatedCreature.position,
             desiredFood.position,
-            prev.map.objects,
+            creatureNavigationObstacles,
             prev.map.width,
             prev.map.height
           )
@@ -1025,14 +1035,14 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           }
 
           const randomTarget = getRandomWalkablePosition(
-            prev.map.objects,
+            creatureNavigationObstacles,
             prev.map.width,
             prev.map.height
           )
           const newPath = findPathWithObstacles(
             updatedCreature.position,
             randomTarget,
-            prev.map.objects,
+            creatureNavigationObstacles,
             prev.map.width,
             prev.map.height
           )

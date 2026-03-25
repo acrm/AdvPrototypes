@@ -23,7 +23,7 @@
 // B - Trap spawn region targeting bats
 // W - Trap spawn region targeting wolves
 // K - Trap spawn region targeting kobolds
-// * - Party start and extraction candidate region (three candidates in the layout, one chosen per run)
+// * - Party start / extraction candidate region and shelter chunk
 // A - Artifact spawn candidate region (three candidates in the layout, one chosen per run)
 // . - Item spawn region
 //   - Empty walkable chunk category

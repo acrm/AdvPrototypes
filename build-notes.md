@@ -63,3 +63,4 @@
 - 2026w13-1.14 — Smooth party formation transitions, trap area rendering, disable trap placement when not portable, fix NPC agro pathfinding bugs, remove sight range, hide time-of-day from entity info
 - 2026w13-1.15 — Add shelter zones to dungeon layout and create prioritized TODO roadmap
 - 2026w13-1.16 — Implement state-aware vision mechanics for creatures (sleeping detection suppressed, idle periodic checks with view cone, patrol full awareness)
+- 2026w13-1.17 — Use star spawn chunks as shelters, block creatures from entering shelters, and fix victory end-screen transition

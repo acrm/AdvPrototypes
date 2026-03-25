@@ -1056,7 +1056,11 @@ export function initializeMap(visionMultiplier = 1): { map: GameMap; partyStartP
     food: [],
     traps: [],
     spawnZones: [],
-    refugeZones: [],
+    refugeZones: collectLayoutCells(lines, '*').map((cell) => ({
+      position: layoutToWorld(cell.col, cell.row),
+      width: LAYOUT_REGION_SIZE,
+      height: LAYOUT_REGION_SIZE,
+    })),
     artifact: {
       id: 'artifact_placeholder',
       type: 'artifact',
@@ -1209,14 +1213,6 @@ export function initializeMap(visionMultiplier = 1): { map: GameMap; partyStartP
           }
         )
         map.spawnZones.push(applyInitialSpawnToZone(map, zone, DEFAULT_CYCLE_TIME))
-      }
-
-      if (symbol === 'H') {
-        map.refugeZones.push({
-          position: layoutToWorld(col, row),
-          width: LAYOUT_REGION_SIZE,
-          height: LAYOUT_REGION_SIZE,
-        })
       }
     }
   }

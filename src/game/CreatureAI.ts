@@ -3,7 +3,7 @@
  * No React, no Canvas, no side effects.
  */
 
-import { Creature, CreatureRelation, Food, GameState, Vector2 } from '../types/game'
+import { Creature, CreatureRelation, Food, GameObject, GameState, Vector2 } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
 import { findPathWithObstacles, GRID_SIZE, isPositionWalkable } from '../systems/Pathfinding'
 import { createMovementBounds, stepAlongWaypoints, stepTowardsTarget } from '../systems/MovementSystem'
@@ -21,6 +21,22 @@ const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
 const [TRAP_IMMOBILIZE_MIN, TRAP_IMMOBILIZE_MAX] = GAME_SETTINGS.trap.immobilizeDurationRangeSeconds
 
 const CREATURE_STEP_SCALES = [1, 0.66, 0.4, 0.2] as const
+
+function getCreatureNavigationObstacles(map: GameState['map']): GameObject[] {
+  return [
+    ...map.objects,
+    ...map.refugeZones.map((zone, index) => ({
+      id: `refuge_block_${index}`,
+      type: 'obstacle' as const,
+      position: zone.position,
+      width: zone.width,
+      height: zone.height,
+      color: 'transparent',
+      name: 'Shelter Boundary',
+      description: 'Creatures cannot enter shelter chunks.',
+    })),
+  ]
+}
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -272,6 +288,7 @@ export function moveCreatureAlongWaypoints(
 ): Creature {
   const speed = creature.speed * speedMultiplier
   const bounds = createMovementBounds(map.width, map.height, NPC_BOUNDARY_PADDING)
+  const navigationObstacles = getCreatureNavigationObstacles(map)
   const movement = stepAlongWaypoints({
     position: creature.position,
     direction: creature.direction,
@@ -281,7 +298,7 @@ export function moveCreatureAlongWaypoints(
     navigationCellSize: GRID_SIZE,
     stepScales: CREATURE_STEP_SCALES,
     clampBounds: bounds,
-    isWalkable: (pos) => isPositionWalkable(pos, map.objects),
+    isWalkable: (pos) => isPositionWalkable(pos, navigationObstacles),
   })
 
   if (movement.arrived) {
@@ -311,6 +328,7 @@ export function moveCreatureDirectly(
   speedMultiplier = 1
 ): Creature {
   const bounds = createMovementBounds(map.width, map.height, NPC_BOUNDARY_PADDING)
+  const navigationObstacles = getCreatureNavigationObstacles(map)
   const movement = stepTowardsTarget({
     position: creature.position,
     direction: creature.direction,
@@ -318,7 +336,7 @@ export function moveCreatureDirectly(
     speed: creature.speed * speedMultiplier,
     stepScales: CREATURE_STEP_SCALES,
     clampBounds: bounds,
-    isWalkable: (pos) => isPositionWalkable(pos, map.objects),
+    isWalkable: (pos) => isPositionWalkable(pos, navigationObstacles),
   })
 
   return {
@@ -335,6 +353,7 @@ export function findFleePosition(
   threatPosition: Vector2,
   map: GameState['map']
 ): Vector2 {
+  const navigationObstacles = getCreatureNavigationObstacles(map)
   const base = Math.atan2(
     creature.position.y - threatPosition.y,
     creature.position.x - threatPosition.x
@@ -355,7 +374,7 @@ export function findFleePosition(
       x: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.width - NPC_BOUNDARY_PADDING, creature.position.x + Math.cos(angle) * step)),
       y: Math.max(NPC_BOUNDARY_PADDING, Math.min(map.height - NPC_BOUNDARY_PADDING, creature.position.y + Math.sin(angle) * step)),
     }
-    if (isPositionWalkable(candidate, map.objects)) return candidate
+    if (isPositionWalkable(candidate, navigationObstacles)) return candidate
   }
 
   return creature.position
@@ -479,7 +498,13 @@ export function resolveCreatureReaction(
 
   if (reaction.action === 'avoid') {
     const fleePos = findFleePosition(workingCreature, reaction.targetPosition, map)
-    const fleePath = findPathWithObstacles(workingCreature.position, fleePos, map.objects, map.width, map.height)
+    const fleePath = findPathWithObstacles(
+      workingCreature.position,
+      fleePos,
+      getCreatureNavigationObstacles(map),
+      map.width,
+      map.height
+    )
     const base = {
       ...clearAggressionTarget(workingCreature),
       alertUntil: gameTime + ALERT_DURATION_SECONDS,
@@ -494,7 +519,11 @@ export function resolveCreatureReaction(
   }
 
   const chasePath = findPathWithObstacles(
-    workingCreature.position, reaction.targetPosition, map.objects, map.width, map.height
+    workingCreature.position,
+    reaction.targetPosition,
+    getCreatureNavigationObstacles(map),
+    map.width,
+    map.height
   )
   const boosted = applyAggressionBurst(workingCreature, reaction, gameTime)
   const multiplier = isAggressionBoostActive(boosted, gameTime) ? AGGRESSION_BOOST_MULTIPLIER : 1
@@ -570,3 +599,4 @@ export function getTrapImmobilizeDuration(creature: Creature): number {
 // ---------------------------------------------------------------------------
 
 export { FRIENDLY_FEEDINGS_REQUIRED }
+export { getCreatureNavigationObstacles }
