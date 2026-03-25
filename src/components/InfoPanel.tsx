@@ -1,14 +1,15 @@
 import React from 'react'
-import { Creature, DietTarget, Food, GameObject, Party, Trap } from '../types/game'
+import { Creature, Food, GameObject, Party, Trap } from '../types/game'
 import { GAME_SETTINGS } from '../config/gameSettings'
 import './InfoPanel.css'
 
 const CYCLE_DURATION_SECONDS = GAME_SETTINGS.cycle.durationSeconds
-const FRIENDLY_FEEDINGS_REQUIRED = GAME_SETTINGS.food.feedingsToBecomeFriendly
+const CHUNK_SIZE_PX = GAME_SETTINGS.world.navigationCellSize * GAME_SETTINGS.world.layoutRegionScale
 type TickPlaybackMode = 'paused' | 'normal'
 
 interface InfoPanelProps {
   selectedObject: GameObject | null
+  creatures: Creature[]
   party: Party
   clockLabel: string
   clockDay: number
@@ -40,6 +41,7 @@ interface InfoPanelProps {
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({
   selectedObject,
+  creatures,
   party,
   clockLabel,
   clockDay,
@@ -86,10 +88,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     info += `[POSITION] (${Math.round(party.position.x)}, ${Math.round(party.position.y)})\n\n`
     info += `[CARRYING] ${party.carriedItem ? party.carriedItem.name : 'Nothing'}\n\n`
     info += `[OBSERVED] ${party.observedCreatures.size} creatures\n\n`
-    info += `[CONTROLS] Use [PICK UP], [SET TRAP], [THROW], [DROP], and [EAT] actions below\n\n`
+    info += `[CONTROLS] Actions are shown below only when they are available\n\n`
 
     if (isThrowTargeting) {
-      info += `[THROW MODE] Click walkable ground within ${Math.floor(throwRadius)}px\n\n`
+      info += `[THROW MODE] Click walkable ground within ${formatChunks(throwRadius)} chunks\n\n`
     }
 
     if (isDefeated) {
@@ -116,6 +118,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     return info
   }
 
+  const formatChunks = (pixels: number): string => {
+    return (pixels / CHUNK_SIZE_PX).toFixed(2)
+  }
+
   const cycleSecToHHMM = (s: number): string => {
     const totalMin = Math.floor(s * 6)
     const h = Math.floor(totalMin / 60) % 24
@@ -129,19 +135,17 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     // Show current state
     const stateEmoji = creature.state === 'sleeping' ? '💤' : creature.state === 'patrol' ? '🚶' : '⏸️'
     desc += `[STATE] ${stateEmoji} ${creature.state.charAt(0).toUpperCase() + creature.state.slice(1)}\n\n`
-    desc += `[CONDITION] ${getCreatureConditionLabel(creature, gameTime)}\n\n`
-    
-    // Show ALERT status
+    const statusParts = [getCreatureConditionLabel(creature, gameTime)]
     if (creature.alertUntil !== null && gameTime < creature.alertUntil) {
-      desc += `[ALERT] ⚠️ Active\n\n`
+      statusParts.push('Alert')
     }
+    statusParts.push(getDetectionModeLabel(creature))
+    desc += `[STATUS] ${statusParts.join(' | ')}\n\n`
     
     // Show relation
     const relationEmoji = creature.relation === 'friendly' ? '💚' : creature.relation === 'aggressive' ? '❤️‍🔥' : '⚪'
     desc += `[RELATION] ${relationEmoji} ${creature.relation.charAt(0).toUpperCase() + creature.relation.slice(1)}\n\n`
     
-    desc += `[TAMING] ${creature.isFriendly ? 'Friendly' : `${creature.primingFeedings}/${FRIENDLY_FEEDINGS_REQUIRED} feedings`}\n\n`
-
     if (creature.condition === 'trapped' && creature.trappedUntil !== null) {
       desc += `[RELEASE IN] ${Math.max(0, creature.trappedUntil - gameTime).toFixed(1)}s\n\n`
     }
@@ -162,29 +166,12 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
     const sleepStart = creature.sleepSchedule.sleepStart
     const sleepEnd = creature.sleepSchedule.sleepEnd
     desc += `[SLEEP] ${cycleSecToHHMM(sleepStart)}–${cycleSecToHHMM(sleepEnd)} ${sleepEnd < sleepStart ? '(wraps)' : ''}\n\n`
-    desc += `[DETECTION] ${getDetectionModeLabel(creature)}\n`
-    desc += `[RADIUS NEAR] ${Math.floor(creature.alertRadius)}px\n`
-    desc += `[RADIUS FAR] ${Math.floor(creature.farBehaviorRadius)}px\n`
-    desc += `[VISION] ${Math.floor(creature.detectionRadius)}px\n\n`
+    desc += `[RADII] Near ${formatChunks(creature.alertRadius)} chunks | Far ${formatChunks(creature.farBehaviorRadius)} chunks\n`
+    desc += `[VISION RANGE] ${formatChunks(creature.detectionRadius)} chunks\n`
+    desc += `[RADIUS MEANING] Near = immediate wake/reaction. Far = spacing/chase band for avoid/vision behaviors.\n\n`
+    desc += `[FLEEING FROM] ${getFleeingFromLabel(creature, creatures, party)}\n\n`
     
     if (creature.behavior) desc += `[BEHAVIOR] ${creature.behavior}\n`
-    if (creature.diet) desc += `[DIET] ${creature.diet}\n`
-    if (creature.threat) desc += `[THREAT] ${creature.threat}\n`
-    
-    if (creature.dietPriorities.length > 0) {
-      desc += `[DIET PRIORITY] Highest to lowest\n`
-      creature.dietPriorities.forEach((target, index) => {
-        desc += `${index + 1}. ${formatDietTarget(target)}\n`
-      })
-
-      const predatorTargets = creature.dietPriorities
-        .filter((target) => target.startsWith('creature:') || target === 'player')
-        .map(formatDietTarget)
-
-      if (predatorTargets.length > 0) {
-        desc += `[PREDATOR TARGETS] ${predatorTargets.join(', ')}\n`
-      }
-    }
     
     desc += `\n[TIMES OBSERVED] ${party.observedCreatures.get(creature.id) || 0}`
     return desc
@@ -213,15 +200,13 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
       `[STATUS] ${formatTrapStateLabel(trap)}`,
       `[VISIBILITY] ${trap.state === 'portable' ? 'Visible and portable' : 'Hidden after placement'}`,
       `[TARGET SPECIES] ${trap.targetSpecies}`,
-      `[TRIGGER RADIUS] ${Math.floor(trap.triggerRadius)}px`,
+      `[TRIGGER RADIUS] ${formatChunks(trap.triggerRadius)} chunks`,
       ...(trap.state === 'arming' ? [`[ARMED IN] ...`] : []),
     ].join('\n')
   }
 
   let content: string = ''
-  const selectedCreatureName = selectedObject?.type === 'creature'
-    ? selectedObject.name
-    : null
+  const entityDisplayName = selectedObject ? selectedObject.name : 'Adventuring Party'
 
   if (selectedObject) {
     if (selectedObject.type === 'creature') {
@@ -244,55 +229,58 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
           <h2>INFO</h2>
           <div className="panel-clock">{clockLabel}</div>
         </div>
-        <div className="panel-header-subtitle">
-          {selectedCreatureName ? `[CREATURE] ${selectedCreatureName}` : '[CREATURE] -'}
-        </div>
       </div>
       <div className="panel-content">
+        <div className="entity-name-block">{entityDisplayName}</div>
         <div className="panel-content-details">
           <InfoContent text={content} />
         </div>
         <div className="panel-actions">
-          <button
-            type="button"
-            className="action-button"
-            disabled={!canPickUpSelected}
-            onClick={onPickUpSelected}
-          >
-            [PICK UP]
-          </button>
-          <button
-            type="button"
-            className="action-button"
-            disabled={!canSetTrapSelected}
-            onClick={onSetTrapSelected}
-          >
-            [SET TRAP]
-          </button>
-          <button
-            type="button"
-            className="action-button"
-            disabled={!canThrowCarried}
-            onClick={onThrowCarried}
-          >
-            {isThrowTargeting ? '[THROW: AIM]' : '[THROW]'}
-          </button>
-          <button
-            type="button"
-            className="action-button"
-            disabled={!canDropCarried}
-            onClick={onDropCarried}
-          >
-            [DROP]
-          </button>
-          <button
-            type="button"
-            className="action-button"
-            disabled={!canEatCarried}
-            onClick={onEatCarried}
-          >
-            [EAT]
-          </button>
+          {canPickUpSelected && (
+            <button
+              type="button"
+              className="action-button"
+              onClick={onPickUpSelected}
+            >
+              [PICK UP]
+            </button>
+          )}
+          {canSetTrapSelected && (
+            <button
+              type="button"
+              className="action-button"
+              onClick={onSetTrapSelected}
+            >
+              [SET TRAP]
+            </button>
+          )}
+          {canThrowCarried && (
+            <button
+              type="button"
+              className="action-button"
+              onClick={onThrowCarried}
+            >
+              {isThrowTargeting ? '[THROW: AIM]' : '[THROW]'}
+            </button>
+          )}
+          {canDropCarried && (
+            <button
+              type="button"
+              className="action-button"
+              onClick={onDropCarried}
+            >
+              [DROP]
+            </button>
+          )}
+          {canEatCarried && (
+            <button
+              type="button"
+              className="action-button"
+              onClick={onEatCarried}
+            >
+              [EAT]
+            </button>
+          )}
         </div>
         <div className="debug-controls">
           <div className="debug-controls-title">[SIM DEBUG] {getTickPlaybackModeLabel(tickPlaybackMode)}</div>
@@ -381,41 +369,48 @@ function getDetectionModeLabel(creature: Creature): string {
   return 'Full awareness (patrol)'
 }
 
-function formatDietTarget(target: DietTarget): string {
-  if (target === 'player') {
-    return 'Adventuring Party'
+function getFleeingFromLabel(creature: Creature, creatures: Creature[], party: Party): string {
+  const candidates: Array<{ label: string; distance: number }> = []
+
+  if (creature.relation === 'avoid') {
+    const distanceToParty = Math.hypot(
+      creature.position.x - party.position.x,
+      creature.position.y - party.position.y
+    )
+    if (distanceToParty <= creature.farBehaviorRadius && party.health > 0) {
+      candidates.push({ label: 'Adventuring Party', distance: distanceToParty })
+    }
   }
 
-  const [prefix, value] = target.split(':')
-  if (prefix === 'food') {
-    return getFoodDisplayName(value)
+  const relationMatrix = GAME_SETTINGS.npc.speciesRelationMatrix as Record<string, Record<string, string>>
+  for (const other of creatures) {
+    if (other.id === creature.id || other.condition === 'trapped') {
+      continue
+    }
+
+    const relationToOther = relationMatrix[creature.species]?.[other.species] ?? 'neutral'
+    if (relationToOther !== 'avoid') {
+      continue
+    }
+
+    const distance = Math.hypot(
+      creature.position.x - other.position.x,
+      creature.position.y - other.position.y
+    )
+    if (distance <= creature.farBehaviorRadius) {
+      candidates.push({
+        label: `${other.name} (${getCreatureDisplayName(other.species)})`,
+        distance,
+      })
+    }
   }
 
-  if (prefix === 'creature') {
-    return getCreatureDisplayName(value)
+  if (candidates.length === 0) {
+    return 'No active flee target'
   }
 
-  return target
-}
-
-function getFoodDisplayName(foodType: string): string {
-  if (foodType === 'fungi') {
-    return 'Fungi'
-  }
-
-  if (foodType === 'organic_matter') {
-    return 'Organic Matter'
-  }
-
-  if (foodType === 'meat') {
-    return 'Meat'
-  }
-
-  if (foodType === 'insects') {
-    return 'Insects'
-  }
-
-  return foodType
+  candidates.sort((a, b) => a.distance - b.distance)
+  return candidates[0].label
 }
 
 function getCreatureDisplayName(species: string): string {

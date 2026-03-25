@@ -849,6 +849,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
         const inFarAggressionRadius =
           updatedCreature.relation === 'aggressive' &&
           usesFarAggressionWake &&
+          !partyInShelter &&
           isCreatureInFarBehaviorRadius(updatedCreature, prev.party.position)
         const forceAwake = (inAlertRadius || inFarAggressionRadius) && shouldSleep
 
@@ -870,9 +871,14 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
           }
         }
 
+        const reactionParty =
+          partyInShelter && !inAlertRadius
+            ? { ...prev.party, health: 0 }
+            : prev.party
+
         const reactionDrivenCreature = resolveCreatureReaction(
           updatedCreature,
-          prev.party,
+          reactionParty,
           prev.map.creatures,
           prev.map,
           nextGameTime
@@ -1446,6 +1452,7 @@ export const DungeonGame: React.FC<DungeonGameProps> = ({ difficulty, onGameEnd 
       />
       <InfoPanel
         selectedObject={gameState.selectedObject}
+        creatures={gameState.map.creatures}
         party={gameState.party}
         clockLabel={clockLabel}
         clockDay={gameState.clock.day}

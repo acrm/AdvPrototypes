@@ -21,6 +21,15 @@ interface DungeonCanvasProps {
 export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanvasClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isHoveringObject, setIsHoveringObject] = useState(false)
+  const previousGameStateRef = useRef<GameState>(gameState)
+  const latestGameStateRef = useRef<GameState>(gameState)
+  const tickStartMsRef = useRef<number>(performance.now())
+
+  useEffect(() => {
+    previousGameStateRef.current = latestGameStateRef.current
+    latestGameStateRef.current = gameState
+    tickStartMsRef.current = performance.now()
+  }, [gameState])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -29,18 +38,41 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const camera = getCameraOffset(gameState, canvas.width, canvas.height)
+    let animationFrameId = 0
 
-    // Clear canvas
-    ctx.fillStyle = '#0d100d'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    const drawFrame = () => {
+      const previousState = previousGameStateRef.current
+      const nextState = latestGameStateRef.current
+      const elapsedSinceTick = performance.now() - tickStartMsRef.current
+      const alpha = Math.max(0, Math.min(1, elapsedSinceTick / GAME_SETTINGS.cycle.creatureTickMs))
+
+      const partyPosition = interpolateVector(previousState.party.position, nextState.party.position, alpha)
+      const partyDirection = interpolateAngle(previousState.party.direction, nextState.party.direction, alpha)
+      const creatureRenderMap = new Map<string, { position: Vector2; direction: number }>()
+
+      for (const creature of nextState.map.creatures) {
+        const previousCreature = previousState.map.creatures.find((c) => c.id === creature.id)
+        const position = previousCreature
+          ? interpolateVector(previousCreature.position, creature.position, alpha)
+          : creature.position
+        const direction = previousCreature
+          ? interpolateAngle(previousCreature.direction, creature.direction, alpha)
+          : creature.direction
+        creatureRenderMap.set(creature.id, { position, direction })
+      }
+
+      const camera = getCameraOffset(nextState, canvas.width, canvas.height, partyPosition)
+
+      // Clear canvas
+      ctx.fillStyle = '#0d100d'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
 
     // Draw large dungeon regions in screen space so the viewport stays fixed
-    const tileSize = gameState.map.layoutCellSize
+      const tileSize = nextState.map.layoutCellSize
     const startCol = Math.max(0, Math.floor(camera.x / tileSize))
-    const endCol = Math.min(Math.ceil((camera.x + canvas.width) / tileSize), Math.ceil(gameState.map.width / tileSize))
+      const endCol = Math.min(Math.ceil((camera.x + canvas.width) / tileSize), Math.ceil(nextState.map.width / tileSize))
     const startRow = Math.max(0, Math.floor(camera.y / tileSize))
-    const endRow = Math.min(Math.ceil((camera.y + canvas.height) / tileSize), Math.ceil(gameState.map.height / tileSize))
+      const endRow = Math.min(Math.ceil((camera.y + canvas.height) / tileSize), Math.ceil(nextState.map.height / tileSize))
 
     for (let row = startRow; row < endRow; row++) {
       for (let col = startCol; col < endCol; col++) {
@@ -54,14 +86,14 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       }
     }
 
-    ctx.save()
-    ctx.translate(-camera.x, -camera.y)
+      ctx.save()
+      ctx.translate(-camera.x, -camera.y)
 
-    drawRefugeZones(ctx, gameState)
-    drawExtractionZone(ctx, gameState)
+      drawRefugeZones(ctx, nextState)
+      drawExtractionZone(ctx, nextState)
 
     // Draw static objects (rectangles)
-    for (const obj of gameState.map.objects) {
+      for (const obj of nextState.map.objects) {
       ctx.fillStyle = obj.color
       ctx.fillRect(
         obj.position.x - obj.width / 2,
@@ -72,7 +104,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     // Draw items (circles)
-    for (const item of gameState.map.items) {
+      for (const item of nextState.map.items) {
       ctx.fillStyle = item.color
       ctx.beginPath()
       ctx.arc(item.position.x, item.position.y, item.width / 2, 0, Math.PI * 2)
@@ -80,7 +112,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     // Draw food (small circles with outline)
-    for (const food of gameState.map.food) {
+      for (const food of nextState.map.food) {
       const radius = food.width / 2
       ctx.fillStyle = food.color
       ctx.beginPath()
@@ -92,7 +124,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     // Draw traps as diamonds.
-    for (const trap of gameState.map.traps) {
+      for (const trap of nextState.map.traps) {
       if (!isTrapVisible(trap)) {
         continue
       }
@@ -101,25 +133,33 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     // Draw artifact (highlight circle)
-    const artifact = gameState.map.artifact
+      const artifact = nextState.map.artifact
     ctx.fillStyle = artifact.color
     ctx.beginPath()
     ctx.arc(artifact.position.x, artifact.position.y, artifact.width / 2, 0, Math.PI * 2)
     ctx.fill()
 
     // Draw creatures (triangles)
-    for (const creature of gameState.map.creatures) {
-      // All creatures drawn as triangles (sleeping just don't rotate/move)
-      drawTriangle(ctx, creature.position, creature.color, 15, creature.direction)
-      drawCreatureConditionOverlay(ctx, creature)
-      drawCreatureCarriedFood(ctx, creature)
+      for (const creature of nextState.map.creatures) {
+        const rendered = creatureRenderMap.get(creature.id)
+        const creaturePosition = rendered?.position ?? creature.position
+        const creatureDirection = rendered?.direction ?? creature.direction
+        const creatureVisual: Creature = {
+          ...creature,
+          position: creaturePosition,
+          direction: creatureDirection,
+        }
+        // All creatures drawn as triangles (sleeping just don't rotate/move)
+        drawTriangle(ctx, creaturePosition, creature.color, 15, creatureDirection)
+        drawCreatureConditionOverlay(ctx, creatureVisual)
+        drawCreatureCarriedFood(ctx, creatureVisual)
 
       // Draw ALERT state visual (red aura)
-      if (creature.alertUntil !== null && gameState.gameTime < creature.alertUntil) {
-        ctx.strokeStyle = `rgba(255, 100, 100, ${Math.sin(gameState.gameTime * 6) * 0.3 + 0.5})`
+        if (creature.alertUntil !== null && nextState.gameTime < creature.alertUntil) {
+          ctx.strokeStyle = `rgba(255, 100, 100, ${Math.sin(nextState.gameTime * 6) * 0.3 + 0.5})`
         ctx.lineWidth = 3
         ctx.beginPath()
-        ctx.arc(creature.position.x, creature.position.y, 22, 0, Math.PI * 2)
+          ctx.arc(creaturePosition.x, creaturePosition.y, 22, 0, Math.PI * 2)
         ctx.stroke()
 
         // Draw exclamation mark above ALERT creature
@@ -127,33 +167,37 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
         ctx.font = 'bold 14px Arial'
         ctx.fillStyle = 'rgb(255, 100, 100)'
         ctx.textAlign = 'center'
-        ctx.fillText('!', creature.position.x, creature.position.y - 25)
-        ctx.restore()
+          ctx.fillText('!', creaturePosition.x, creaturePosition.y - 25)
+          ctx.restore()
+        }
+
+        if (nextState.selectedObject?.type === 'creature' && nextState.selectedObject.id === creature.id) {
+          ctx.strokeStyle = '#f8f0c0'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(creaturePosition.x, creaturePosition.y, 18, 0, Math.PI * 2)
+          ctx.stroke()
+        }
       }
 
-      if (gameState.selectedObject?.type === 'creature' && gameState.selectedObject.id === creature.id) {
-        ctx.strokeStyle = '#f8f0c0'
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.arc(creature.position.x, creature.position.y, 18, 0, Math.PI * 2)
-        ctx.stroke()
+      const selectedCreature = getSelectedCreature(nextState)
+      if (selectedCreature) {
+        const selectedVisual = creatureRenderMap.get(selectedCreature.id)
+        const selectedCreatureRendered = selectedVisual
+          ? { ...selectedCreature, position: selectedVisual.position, direction: selectedVisual.direction }
+          : selectedCreature
+        drawSelectedCreatureRadii(ctx, selectedCreatureRendered)
+        drawSelectedCreaturePath(ctx, selectedCreatureRendered, nextState, creatureRenderMap, partyPosition)
       }
-    }
-
-    const selectedCreature = getSelectedCreature(gameState)
-    if (selectedCreature) {
-      drawSelectedCreatureRadii(ctx, selectedCreature)
-      drawSelectedCreaturePath(ctx, selectedCreature, gameState)
-    }
 
     // Draw party path (dashed line)
-    if (gameState.party.path.length > 0) {
+      if (nextState.party.path.length > 0) {
       ctx.strokeStyle = '#fff'
       ctx.lineWidth = 1
       ctx.setLineDash([5, 5])
       ctx.beginPath()
-      ctx.moveTo(gameState.party.position.x, gameState.party.position.y)
-      for (const waypoint of gameState.party.path) {
+        ctx.moveTo(partyPosition.x, partyPosition.y)
+        for (const waypoint of nextState.party.path) {
         ctx.lineTo(waypoint.x, waypoint.y)
       }
       ctx.stroke()
@@ -161,8 +205,8 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
     }
 
     // Draw target marker (crosshair)
-    if (gameState.party.targetPosition) {
-      const target = gameState.party.targetPosition
+      if (nextState.party.targetPosition) {
+        const target = nextState.party.targetPosition
       ctx.strokeStyle = '#fff'
       ctx.lineWidth = 1
       // Vertical line
@@ -179,30 +223,34 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
 
     // Draw party (white triangle)
     // Draw party members individually
-    drawPartyMembers(ctx, gameState)
+      drawPartyMembers(ctx, {
+        ...nextState.party,
+        position: partyPosition,
+        direction: partyDirection,
+      })
 
     // Draw carried item near party direction
-    if (gameState.party.carriedItem) {
+      if (nextState.party.carriedItem) {
       const carryDistance = 16
       const carryPosition = {
-        x: gameState.party.position.x + Math.cos(gameState.party.direction) * carryDistance,
-        y: gameState.party.position.y + Math.sin(gameState.party.direction) * carryDistance,
+          x: partyPosition.x + Math.cos(partyDirection) * carryDistance,
+          y: partyPosition.y + Math.sin(partyDirection) * carryDistance,
       }
 
-      if (gameState.party.carriedItem.type === 'trap') {
-        drawDiamond(ctx, carryPosition, gameState.party.carriedItem.color, 6)
-      } else {
-        ctx.fillStyle = gameState.party.carriedItem.color
+        if (nextState.party.carriedItem.type === 'trap') {
+          drawDiamond(ctx, carryPosition, nextState.party.carriedItem.color, 6)
+        } else {
+          ctx.fillStyle = nextState.party.carriedItem.color
         ctx.beginPath()
         ctx.arc(carryPosition.x, carryPosition.y, 5, 0, Math.PI * 2)
         ctx.fill()
+        }
       }
-    }
 
-    // Draw floating damage number
-    if (gameState.party.lastDamageTaken > 0 && gameState.party.damageFlashUntil !== null && gameState.gameTime < gameState.party.damageFlashUntil) {
+      // Draw floating damage number
+      if (nextState.party.lastDamageTaken > 0 && nextState.party.damageFlashUntil !== null && nextState.gameTime < nextState.party.damageFlashUntil) {
       const damageNumberProgress =
-        1 - (gameState.party.damageFlashUntil - gameState.gameTime) / 0.4
+          1 - (nextState.party.damageFlashUntil - nextState.gameTime) / 0.4
       const yOffset = damageNumberProgress * 40 // float upward
       const opacity = Math.max(0, 1 - damageNumberProgress)
 
@@ -211,21 +259,27 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ gameState, onCanva
       ctx.fillStyle = `rgba(255, 100, 100, ${opacity})`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('-' + gameState.party.lastDamageTaken, gameState.party.position.x, gameState.party.position.y - 30 - yOffset)
+        ctx.fillText('-' + nextState.party.lastDamageTaken, partyPosition.x, partyPosition.y - 30 - yOffset)
       ctx.restore()
-    }
+      }
 
-    ctx.restore()
+      ctx.restore()
 
-    // Draw damage flash in screen-space so it always covers the full viewport
-    if (gameState.party.damageFlashUntil !== null && gameState.gameTime < gameState.party.damageFlashUntil) {
+      // Draw damage flash in screen-space so it always covers the full viewport
+      if (nextState.party.damageFlashUntil !== null && nextState.gameTime < nextState.party.damageFlashUntil) {
       const flashProgress =
-        (gameState.party.damageFlashUntil - gameState.gameTime) / 0.4
+          (nextState.party.damageFlashUntil - nextState.gameTime) / 0.4
       const intensity = Math.min(1, flashProgress * 2) // peak at start, fade quickly
       ctx.fillStyle = `rgba(255, 100, 100, ${intensity * 0.6})`
       ctx.fillRect(0, 0, canvas.width, canvas.height)
+      }
+
+      animationFrameId = requestAnimationFrame(drawFrame)
     }
-  }, [gameState])
+
+    animationFrameId = requestAnimationFrame(drawFrame)
+    return () => cancelAnimationFrame(animationFrameId)
+  }, [])
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -323,18 +377,25 @@ function getSelectedCreature(gameState: GameState): Creature | null {
   return gameState.map.creatures.find((creature) => creature.id === gameState.selectedObject?.id) || null
 }
 
-function drawSelectedCreaturePath(ctx: CanvasRenderingContext2D, creature: Creature, gameState: GameState) {
+function drawSelectedCreaturePath(
+  ctx: CanvasRenderingContext2D,
+  creature: Creature,
+  gameState: GameState,
+  creatureRenderMap: Map<string, { position: Vector2; direction: number }>,
+  partyPosition: Vector2
+) {
   ctx.save()
 
   // Always draw the aggression target marker, independent of waypoints.
   if (creature.aggressionTargetType === 'creature' && creature.aggressionTargetId !== null) {
     const target = gameState.map.creatures.find((c) => c.id === creature.aggressionTargetId)
     if (target) {
+      const targetPosition = creatureRenderMap.get(target.id)?.position ?? target.position
       ctx.strokeStyle = 'rgba(255, 160, 60, 0.9)'
       ctx.lineWidth = 1.5
       ctx.setLineDash([])
       ctx.beginPath()
-      ctx.arc(target.position.x, target.position.y, 20, 0, Math.PI * 2)
+      ctx.arc(targetPosition.x, targetPosition.y, 20, 0, Math.PI * 2)
       ctx.stroke()
     }
   } else if (creature.aggressionTargetType === 'player') {
@@ -342,7 +403,7 @@ function drawSelectedCreaturePath(ctx: CanvasRenderingContext2D, creature: Creat
     ctx.lineWidth = 1.5
     ctx.setLineDash([])
     ctx.beginPath()
-    ctx.arc(gameState.party.position.x, gameState.party.position.y, 24, 0, Math.PI * 2)
+    ctx.arc(partyPosition.x, partyPosition.y, 24, 0, Math.PI * 2)
     ctx.stroke()
   }
 
@@ -553,18 +614,24 @@ function drawCreatureCarriedFood(ctx: CanvasRenderingContext2D, creature: Creatu
   ctx.restore()
 }
 
-function getCameraOffset(gameState: GameState, viewportWidth: number, viewportHeight: number): Vector2 {
+function getCameraOffset(
+  gameState: GameState,
+  viewportWidth: number,
+  viewportHeight: number,
+  partyPositionOverride?: Vector2
+): Vector2 {
+  const partyPosition = partyPositionOverride ?? gameState.party.position
   const maxX = Math.max(0, gameState.map.width - viewportWidth)
   const maxY = Math.max(0, gameState.map.height - viewportHeight)
 
   return {
-    x: Math.max(0, Math.min(gameState.party.position.x - viewportWidth / 2, maxX)),
-    y: Math.max(0, Math.min(gameState.party.position.y - viewportHeight / 2, maxY)),
+    x: Math.max(0, Math.min(partyPosition.x - viewportWidth / 2, maxX)),
+    y: Math.max(0, Math.min(partyPosition.y - viewportHeight / 2, maxY)),
   }
 }
 
-function drawPartyMembers(ctx: CanvasRenderingContext2D, gameState: GameState) {
-  const { position, direction, memberStatuses } = gameState.party
+function drawPartyMembers(ctx: CanvasRenderingContext2D, party: GameState['party']) {
+  const { position, direction, memberStatuses } = party
   const n = memberStatuses.length
   const perp = direction + Math.PI / 2
 
@@ -588,6 +655,20 @@ function drawPartyMembers(ctx: CanvasRenderingContext2D, gameState: GameState) {
       ctx.restore()
     }
   }
+}
+
+function interpolateVector(from: Vector2, to: Vector2, alpha: number): Vector2 {
+  return {
+    x: from.x + (to.x - from.x) * alpha,
+    y: from.y + (to.y - from.y) * alpha,
+  }
+}
+
+function interpolateAngle(from: number, to: number, alpha: number): number {
+  let delta = to - from
+  while (delta > Math.PI) delta -= Math.PI * 2
+  while (delta < -Math.PI) delta += Math.PI * 2
+  return from + delta * alpha
 }
 
 function drawTriangle(

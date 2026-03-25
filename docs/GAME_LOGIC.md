@@ -50,6 +50,7 @@
 - Non-selected `*` and `A` candidate markers are inert for that run and do not produce additional starts or artifacts.
 - The artifact spawn point is selected from `A` candidates that are **at least 10 chunks** (Chebyshev distance) from the chosen player start chunk; if no candidate meets the threshold, the farthest available candidate is used.
 - Every `*` chunk on the map acts as a **shelter region** — when the party is stationary inside any `*` chunk, aggressive creatures outside their alert radius suppress their aggression (they do not notice the resting party).
+- While the party is stationary inside a shelter chunk, far-radius vision wake/chase against the player is suppressed. Near-radius intrusion still wakes/reacts normally.
 
 ### Chunk-Based Dungeon Generation
 
@@ -161,6 +162,7 @@
 
 **Simulation Tick Rate:** Fixed at 6 ticks per real second (independent of render FPS)
 - Debug controls can pause, single-step, and resume simulation, but do not change this fixed tick rate.
+- Render motion is interpolated frame-by-frame between ticks for smoother visuals, while game logic remains tick-locked.
 
 **Creature States:**
 1. **SLEEPING** - Completely motionless, unaware of surroundings
